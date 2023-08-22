@@ -2,13 +2,13 @@
 
 ## Acerca de mí
 
-Soy estudiante de ingeniería informática en España, y me apasiona todo lo relacionado con la computación. Actualmente, me estoy especializando en esta rama, lo que me permite explorar nuevas tecnologías y desafíos emocionantes.
+Soy estudiante de ingeniería informática en España, y me apasiona todo lo relacionado con la IA y con el desarrollo móvil. Actualmente, me estoy especializando en la rama de computación, lo que me permite explorar nuevas tecnologías y desafíos emocionantes.
 
 ## Lenguajes y Tecnologías
 
 Entre los lenguajes de programación con los que trabajo, destacan:
 
-- Python 🐍 (Mi favorito ❤️)
+- Python 🐍
 - C, C++
 - Java
 - JavaScript
@@ -27,4 +27,4 @@ Me encanta participar en comunidades tecnológicas y grupos relacionados con el 
 
 Puedes encontrarme en mi perfil de GitHub: [adrianreinag](https://github.com/adrianreinag). Si tienes alguna pregunta, sugerencia o simplemente quieres charlar sobre programación, ¡no dudes en contactarme!
 
-¡Espero que encuentres mi trabajo interesante! ¡Gracias por visitar mi perfil! 😄
+¡Espero que encuentres mi trabajo interesante! 😄
