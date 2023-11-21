@@ -6,14 +6,16 @@ Soy estudiante de ingeniería informática en España, y me apasiona todo lo rel
 
 ## Lenguajes y Tecnologías
 
-Entre los lenguajes de programación con los que trabajo, destacan:
+Entre los lenguajes de programación y frameworks con los que trabajo, destacan:
 
 - Python 🐍
 - C, C++
 - Java
-- JavaScript
-- HTML, CSS
 - Dart
+- Flutter
+- HTML, CSS
+- JavaScript
+- React
 
 ## Proyectos
 
