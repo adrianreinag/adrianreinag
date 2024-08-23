@@ -1,8 +1,7 @@
 # ¡Hola, soy Adrián Reina Gálvez! 👋
 
-🎓 **Estudiante de Ingeniería Informática | Desarrollador de Software** 💻
-
-Soy un estudiante de Ingeniería Informática con una profunda pasión por la innovación tecnológica y el mundo del software. Mi experiencia abarca un amplio espectro, desde el desarrollo web hasta la creación de aplicaciones para Android e iOS, incluyendo el análisis de datos y la inteligencia artificial.
+## 👨‍💻 Sobre mí
+Soy Adrián Reina Gálvez, desarrollador de software con pasión por crear soluciones digitales que realmente marquen la diferencia. Tengo experiencia en desarrollo web, móvil y backend, y me adapto rápidamente a nuevos desafíos para ofrecer siempre lo mejor.
 
 ## ⚡ Experiencia:
 - Trabajo con el framework Flutter, desarrollando diversas aplicaciones para Android e iOS.
