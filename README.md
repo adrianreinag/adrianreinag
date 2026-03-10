@@ -1,16 +1,19 @@
-## Hi there 👋
+👋 Hi, I'm **Adrián Reina Gálvez**, a **Full-Stack Developer** working in production environments where reliability and clean engineering matter.
 
-<!--
-**adrianreinag/adrianreinag** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+## 📍 **Current Role**
 
-Here are some ideas to get you started:
+I currently work as a **Backend Developer at Redsys**, within the **Bizum ecosystem**, building and maintaining Java services that power real financial transactions.  
+My work involves designing REST APIs, implementing business logic, testing, and deploying within a distributed system where stability and best practices are essential.
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## 🛠️ **Full-Stack Perspective**
+
+Alongside backend engineering, I enjoy building complete products. My experience spans both backend and frontend technologies, including **Java, Node.js, React, Next.js, and Astro**, allowing me to turn ideas into working features — from API design to user interfaces.
+
+## 🤖 **Exploring AI**
+
+I’m also interested in applying **AI tools to real development workflows**, experimenting with prototypes and integrations that improve productivity and open new product possibilities.
+
+## 🎯 **What Drives Me**
+
+I enjoy working on products where **clean code, strong engineering practices, and good user experience** go hand in hand.  
+I’m naturally curious, proactive, and motivated by building software that is both technically solid and genuinely useful.
