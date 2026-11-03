@@ -37,7 +37,9 @@ También funciona en GitHub Pages. Three.js (r170) se carga desde jsDelivr.
 | `js/terrain.js` | Terreno procedural: colina de la ciudad, río, desierto, cordillera |
 | `js/sky.js` | Cielo, estrellas, luna, Estrella de Belén y ciclo día/noche |
 | `js/builder.js` | Arquitectura procedural: casas hebreas, murallas, Portal, puente, molino, horno, fragua |
-| `js/actors.js` | Figuras animadas: túnicas, pañuelos, posturas, camellos, jinetes, ángeles |
+| `js/people.js` | Personajes realistas: kit de piezas, atlas, paleta por personaje y ropa generada enlazada al esqueleto |
+| `js/actors.js` | Figuras animadas: recetas de personajes, posturas, camellos, jinetes, ángeles |
+| `js/materials.js` | Detalle procedural en el sombreador: enlucido, sillares, madera, roca, tierra y pelaje |
 | `js/world.js` | Composición de todas las escenas |
 | `js/effects.js` | Fuego, humo, chispas, palomas, patos, nubes, luciérnagas |
 | `models/` | Modelos GLB optimizados (meshopt) |
@@ -47,9 +49,11 @@ También funciona en GitHub Pages. Three.js (r170) se carga desde jsDelivr.
 
 Todos los modelos son de **[Quaternius](https://quaternius.com)** y tienen licencia **CC0 1.0** (dominio público):
 
-- Ultimate Animated Animal Pack: burro, buey, toro, caballos, alpaca (convertida en camello), perros, ciervos, zorro y lobo.
-- Ultimate Modular Men Pack y Ultimate Modular Women Pack: personajes y sus animaciones (andar, saludar, trabajar…). Las túnicas, pañuelos, cascos y capas se añaden por código.
+- Ultimate Animated Animal Pack: burro, buey, toro, caballos (uno convertido en dromedario con joroba y cuello alargado), perros, ciervos, zorro y lobo.
+- Universal Base Characters y Modular Character Outfits - Fantasy: cabezas, pelo, barbas y trajes de campesino y de pastor con capucha, con texturas. Se combinan en un atlas por sexo (`models/kit_m.glb`, `models/kit_f.glb`) y cada personaje es una sola malla.
+- Universal Animation Library 1 y 2: andar, hablar, sentarse, arrodillarse, cosechar, regar, cortar leña, llevar un farol o un escudo, cargar en brazos…
+- Las túnicas, mantos, velos, pañuelos con cordón, coronas y cascos romanos se generan por código y van enlazados al esqueleto, de modo que siguen las piernas al andar o arrodillarse.
 - Farm Animal Pack: ovejas.
 - Medieval Village Pack, Ultimate Fantasy RTS, Ultimate Nature Pack, Ultimate Crops Pack, Ultimate RPG Pack, Survival Pack y Ships Pack: puestos de mercado, pozo, carro, barriles, palmeras, olivos, sauces, rocas, montañas, palacio, cofres y regalos, tiendas, barca.
 
-Las copias usadas proceden de réplicas públicas en GitHub ([quaternius-showcase](https://github.com/trebeljahr/quaternius-showcase) y otras indicadas en `tools/fetch-models.sh`). La melodía de *Noche de paz* (Franz X. Gruber, 1818) es de dominio público y se sintetiza en el navegador.
+Los personajes y animaciones se descargan de la tienda de Quaternius en itch.io; el resto, de réplicas públicas en GitHub ([quaternius-showcase](https://github.com/trebeljahr/quaternius-showcase) y otras indicadas en `tools/fetch-models.sh`). La melodía de *Noche de paz* (Franz X. Gruber, 1818) es de dominio público y se sintetiza en el navegador.

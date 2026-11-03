@@ -1,6 +1,6 @@
 // Construcción procedural: casas hebreas, murallas, el Portal, puente, molino, horno, fragua...
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RNG, clamp, lerp, noise2 } from './util.js';
 import { heightAt } from './terrain.js';
 
@@ -21,10 +21,16 @@ function paint(g, color, jitter = 0, rng = null) {
   return g;
 }
 
+// Tipo de superficie para el detalle del sombreador: 0 enlucido, 1 sillar, 2 madera, 3 tela, 4 roca
+const WOODS = new Set([0x6a4a2c, 0x4a3220, 0x5a3a24, 0x5e4026, 0x7a5634, 0x6e4c2e, 0x5a3a22, 0x3a2a1a, 0x4a3a2a, 0x6a4a2c, 0x3a2a1e, 0x8a5a30, 0x2a1a10]);
+const STONES = new Set([0xcdb28a, 0xd3b892, 0xb89c74, 0xbca486, 0xb09878, 0xc8b090, 0xa89070, 0xc8b496, 0xd6c4a4, 0xd0bc9c, 0xc2a882, 0xb09670, 0xae9470, 0xb8a080, 0xb8a07c, 0xc8b08a, 0xb8a486, 0xa89474, 0xc4b090, 0x8a7a6a, 0x7a6a5a, 0xa88a62, 0x9a7a5a]);
+export function surfOf(color) { return WOODS.has(color) ? 2 : STONES.has(color) ? 1 : 0; }
+
 export class GeoBuilder {
   constructor() { this.parts = []; }
-  add(geo, color, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, parent = null } = {}) {
+  add(geo, color, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, parent = null, surf = null } = {}) {
     const g = paint(prep(geo.clone ? geo.clone() : geo), color);
+    g.setAttribute('surf', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(surf ?? surfOf(color)), 1));
     _e.set(rx, ry, rz, 'YXZ'); _q.setFromEuler(_e); _p.set(x, y, z); _s.set(sx, sy, sz);
     _m.compose(_p, _q, _s);
     if (parent) _m.premultiply(parent);
@@ -71,7 +77,8 @@ export function hebrewHouse(B, W, { x, z, ry = 0, w = 6, d = 5, floors = 1, colo
   const base = lerp(mn, mx, 0.7);
   const F = frame(x, base, z, ry);
   const H1 = rng.range(2.9, 3.4);
-  const wall = color;
+  const stoneHouse = rng.chance(0.22);
+  const wall = stoneHouse ? rng.pick([0xcdb28a, 0xd3b892, 0xc8b496, 0xd6c4a4]) : color;
   const roofCol = new THREE.Color(wall).multiplyScalar(0.86).getHex();
   // cimiento
   const foundH = base - mn + 1.5;
@@ -96,13 +103,38 @@ export function hebrewHouse(B, W, { x, z, ry = 0, w = 6, d = 5, floors = 1, colo
   B.box(dw, dh, 0.1, DOOR, { x: dx, y: dh / 2, z: d / 2 + 0.03, parent: F });
   B.add(new THREE.CylinderGeometry(dw / 2, dw / 2, 0.1, 10, 1, false, -Math.PI / 2, Math.PI), DOOR, { x: dx, y: dh, z: d / 2 + 0.03, rx: Math.PI / 2, parent: F });
   B.box(dw + 0.3, 0.12, 0.5, 0xc8b08a, { x: dx, y: 0.06, z: d / 2 + 0.25, parent: F });
+  // jambas y dintel de piedra, tablas de la puerta
+  for (const sd of [-1, 1]) B.box(0.16, dh + 0.1, 0.14, 0xc8b496, { x: dx + sd * (dw / 2 + 0.08), y: (dh + 0.1) / 2, z: d / 2 + 0.05, parent: F });
+  B.box(dw + 0.5, 0.18, 0.16, 0xc8b496, { x: dx, y: dh + dw / 2 + 0.06, z: d / 2 + 0.05, parent: F });
+  for (let k = 1; k < 4; k++) B.box(0.025, dh - 0.05, 0.02, 0x3a2414, { x: dx - dw / 2 + k * dw / 4, y: dh / 2, z: d / 2 + 0.09, parent: F });
+  B.add(new THREE.TorusGeometry(0.05, 0.012, 4, 10), 0x2a2420, { x: dx + dw * 0.25, y: dh * 0.5, z: d / 2 + 0.1, parent: F });
+  // zócalo más oscuro
+  B.box(w + 0.04, 0.45, d + 0.04, new THREE.Color(wall).multiplyScalar(0.82).getHex(), { y: 0.225, parent: F });
+  // gárgolas (desagües) de la azotea
+  for (let k = 0; k < rng.int(1, 2); k++) B.cyl(0.05, 0.06, 0.55, 0x9a5a34, { x: rng.range(-w / 2 + 0.5, w / 2 - 0.5), y: H1 - 0.05, z: d / 2 + 0.25, rx: Math.PI / 2 + 0.15, parent: F }, 6);
   // ventanas
+  const arched = rng.chance(0.35), shut = rng.chance(0.5);
+  const shutCol = rng.pick([0x4a6a5a, 0x5a4a3a, 0x3a5a7a, 0x6a4a2c, 0x7a3a2a]);
   const win = (wx, wy, wz, rot) => {
     const lightOn = rng.chance(lit);
-    const ww = rng.range(0.45, 0.6), wh = rng.range(0.55, 0.75);
+    const ww = rng.range(0.45, 0.6), wh = rng.range(0.6, 0.8);
+    const fx = Math.sin(rot), fz = Math.cos(rot); // normal hacia fuera
     if (lightOn) W.box(ww, wh, 0.06, 0xffc070, { x: wx, y: wy, z: wz, ry: rot, parent: F });
-    else B.box(ww, wh, 0.06, 0x2a2018, { x: wx, y: wy, z: wz, ry: rot, parent: F });
-    B.box(ww + 0.16, 0.08, 0.14, 0xc8b08a, { x: wx + Math.sin(rot) * 0.03, y: wy - wh / 2 - 0.04, z: wz + Math.cos(rot) * 0.03, ry: rot, parent: F });
+    else B.box(ww, wh, 0.06, 0x241a12, { x: wx, y: wy, z: wz, ry: rot, parent: F });
+    if (arched) { const a = new THREE.CylinderGeometry(ww / 2, ww / 2, 0.06, 10, 1, false, -Math.PI / 2, Math.PI); (lightOn ? W : B).add(a, lightOn ? 0xffc070 : 0x241a12, { x: wx, y: wy + wh / 2, z: wz, rx: Math.PI / 2, ry: rot, parent: F }); }
+    // marco de madera y alféizar de piedra
+    const fw = 0.06;
+    B.box(fw, wh + fw * 2, 0.09, 0x5a3a24, { x: wx - Math.cos(rot) * (ww / 2 + fw / 2), y: wy, z: wz + Math.sin(rot) * (ww / 2 + fw / 2), ry: rot, parent: F });
+    B.box(fw, wh + fw * 2, 0.09, 0x5a3a24, { x: wx + Math.cos(rot) * (ww / 2 + fw / 2), y: wy, z: wz - Math.sin(rot) * (ww / 2 + fw / 2), ry: rot, parent: F });
+    if (!arched) B.box(ww + fw * 2, 0.12, 0.12, 0xc8b08a, { x: wx + fx * 0.02, y: wy + wh / 2 + 0.06, z: wz + fz * 0.02, ry: rot, parent: F });
+    B.box(ww + 0.2, 0.08, 0.16, 0xc8b08a, { x: wx + fx * 0.04, y: wy - wh / 2 - 0.04, z: wz + fz * 0.04, ry: rot, parent: F });
+    // contraventanas entreabiertas
+    if (shut && !arched) for (const sd of [-1, 1]) {
+      const ox = -Math.cos(rot) * sd * (ww / 2 + 0.16), oz = Math.sin(rot) * sd * (ww / 2 + 0.16);
+      B.box(ww / 2, wh, 0.04, shutCol, { x: wx + ox + fx * 0.12, y: wy, z: wz + oz + fz * 0.12, ry: rot + sd * 0.9, parent: F, surf: 2 });
+    }
+    // maceta con flores en algunas ventanas
+    if (rng.chance(0.25)) { B.box(ww * 0.8, 0.14, 0.16, 0xb8643a, { x: wx + fx * 0.12, y: wy - wh / 2 + 0.03, z: wz + fz * 0.12, ry: rot, parent: F }); B.sphere(0.13, rng.pick([0x4a7a3a, 0x5a8a3a]), { x: wx + fx * 0.14, y: wy - wh / 2 + 0.16, z: wz + fz * 0.14, sx: 1.6, sy: 0.6, parent: F }, 7, 4); B.sphere(0.05, rng.pick([0xd04050, 0xe8c040, 0xf0f0f0]), { x: wx + fx * 0.16, y: wy - wh / 2 + 0.22, z: wz + fz * 0.16, parent: F }, 5, 3); }
   };
   const nwf = Math.max(1, Math.floor(w / 2.4));
   for (let i = 0; i < nwf; i++) { const wx = -w / 2 + (i + 0.5) * (w / nwf); if (Math.abs(wx - dx) > dw) win(wx, H1 * 0.62, d / 2 + 0.035, 0); }
@@ -139,7 +171,7 @@ export function hebrewHouse(B, W, { x, z, ry = 0, w = 6, d = 5, floors = 1, colo
   // toldo de tela sobre la puerta
   if (awning ?? rng.chance(0.3)) {
     const col = rng.pick(CLOTH);
-    B.box(dw + 1.3, 0.04, 1.3, col, { x: dx, y: dh + 0.45, z: d / 2 + 0.65, rx: 0.28, parent: F });
+    B.box(dw + 1.3, 0.04, 1.3, col, { x: dx, y: dh + 0.45, z: d / 2 + 0.65, rx: 0.28, parent: F, surf: 3 });
     B.cyl(0.04, 0.04, dh + 0.3, WOOD, { x: dx - (dw + 1.2) / 2, y: (dh + 0.3) / 2, z: d / 2 + 1.25, parent: F }, 5);
     B.cyl(0.04, 0.04, dh + 0.3, WOOD, { x: dx + (dw + 1.2) / 2, y: (dh + 0.3) / 2, z: d / 2 + 1.25, parent: F }, 5);
   }
@@ -217,18 +249,21 @@ export function cityWalls(B, { cx, cz, r, gates = [], wallH = 6.5, thick = 1.8, 
 }
 
 // Rocas facetadas (cueva del Portal, peñascos)
-export function rockBlob(B, { x, y, z, sx = 2, sy = 2, sz = 2, ry = 0, color = 0x8a7a68, rng, detail = 2 }) {
-  const g = new THREE.IcosahedronGeometry(1, detail);
+export function rockBlob(B, { x, y, z, sx = 2, sy = 2, sz = 2, ry = 0, color = 0x8a7a68, rng, detail = 3 }) {
+  let g = new THREE.IcosahedronGeometry(1, detail);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  g = mergeVertices(g);
   const pos = g.attributes.position;
   const sd = rng.range(0, 100);
-  // desplazamiento en función de la posición: los vértices compartidos se mueven igual (sin grietas)
+  // desplazamiento por ruido en función de la posición (superficie continua, sin grietas)
   for (let i = 0; i < pos.count; i++) {
     const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
-    const n = noise2(px * 1.3 + sd, pz * 1.3 + py * 0.9) * 0.22 + noise2(py * 2.6 - sd, px * 2.6 + pz * 1.7) * 0.1;
+    const n = noise2(px * 1.3 + sd, pz * 1.3 + py * 0.9) * 0.2 + noise2(py * 2.6 - sd, px * 2.6 + pz * 1.7) * 0.09 + noise2(px * 5.1 + pz * 3.3, py * 5.3 + sd) * 0.035;
     const k = 1 + n;
     pos.setXYZ(i, px * k, py * k * (py < -0.3 ? 0.6 : 1), pz * k);
   }
-  B.add(g, color, { x, y, z, ry, sx, sy, sz });
+  g.computeVertexNormals();
+  B.add(g, color, { x, y, z, ry, sx, sy, sz, surf: 4 });
 }
 
 // Muro de piedra en ruinas (sillares irregulares con remate roto)
@@ -251,7 +286,8 @@ export function ruinWall(B, F, { x0, z0, len, height, axis = 'z', rng, color = 0
 }
 
 // El Portal de Belén: cueva de roca, establo de madera con techo de paja, ruina de piedra y pesebre
-export function buildPortal(B, { x, z, y, rng }) {
+export function buildPortal(B, { x, z, y, rng, rockBuilder = null }) {
+  const RB = rockBuilder || B;
   const F = frame(x, y, z, 0);
   const WOODP = 0x5e4026, STRAW = 0xd2b05a, STRAW2 = 0xc09a48, STONE = 0xbca486;
   // cueva de roca detrás
@@ -261,10 +297,10 @@ export function buildPortal(B, { x, z, y, rng }) {
     [4.2, 6.0, -8.0, 3.2, 2.6, 2.6], [-5.6, 5.6, -7.6, 3.0, 2.4, 2.6], [-11.0, 0.3, 1.2, 1.4, 1.0, 1.4], [12.0, 0.2, 0.6, 1.2, 0.9, 1.2],
   ];
   for (const [rx, ry, rz, sx, sy, sz] of rocks) {
-    rockBlob(B, { x: x + rx, y: y + ry, z: z + rz, sx, sy, sz, ry: rng.range(0, 6), color: rng.pick([0x9a8a76, 0xa4927a, 0x8e8070, 0xa89880]), rng });
+    rockBlob(RB, { x: x + rx, y: y + ry, z: z + rz, sx, sy, sz, ry: rng.range(0, 6), color: rng.pick([0x9a8a76, 0xa4927a, 0x8e8070, 0xa89880]), rng });
   }
   // musgo y matas sobre la roca
-  for (let i = 0; i < 14; i++) B.sphere(rng.range(0.35, 0.7), rng.pick([0x5a7a3a, 0x4f6e32, 0x6a8a40]), { x: x + rng.range(-8, 8), y: y + rng.range(4.5, 8.5), z: z + rng.range(-8.5, -5.5), sy: 0.6, parent: null }, 7, 5);
+  for (let i = 0; i < 14; i++) RB.sphere(rng.range(0.35, 0.7), rng.pick([0x5a7a3a, 0x4f6e32, 0x6a8a40]), { x: x + rng.range(-8, 8), y: y + rng.range(4.5, 8.5), z: z + rng.range(-8.5, -5.5), sy: 0.6, parent: null, surf: 4 }, 9, 6);
   // postes del establo
   const posts = [[-3.6, 2.2], [0, 2.4], [3.6, 2.2], [-3.6, -2.8], [3.6, -2.8]];
   for (const [px, pz] of posts) B.cyl(0.16, 0.19, 3.4, WOODP, { x: px, y: 1.7, z: pz, parent: F }, 6);

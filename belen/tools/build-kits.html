@@ -1,0 +1,161 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!-- Generador de los kits de personaje (kit_m.glb / kit_f.glb).
+     Sirve la carpeta tools/raw como raíz (con ex_ubc/ y ex_out/ descomprimidos) y node_modules/three en /tools/node_modules/three;
+     build-kits-runner.cjs abre esta página con Playwright y guarda los GLB en tools/kits/. Después: node build-kits.mjs -->
+<script type="importmap">{"imports":{"three":"/tools/node_modules/three/build/three.module.js","three/addons/":"/tools/node_modules/three/examples/jsm/"}}</script>
+</head><body style="margin:0"><script type="module">
+// Construye los "kits" de personaje (hombre y mujer): una sola textura atlas y todas las piezas con un mismo esqueleto.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+const L = new GLTFLoader();
+const B = '/ex_ubc/Universal Base Characters[Standard]/Base Characters/Godot - UE/';
+const O = '/ex_out/Modular Character Outfits - Fantasy[Standard]/Exports/glTF (Godot-Unreal)/Outfits/';
+const H = '/ex_ubc/Universal Base Characters[Standard]/Hairstyles/Rigged to Head Bone/glTF (Godot -Unreal)/';
+const log = (...a) => console.log('[T]', ...a);
+const TILE = 1024, AW = TILE * 3, AH = TILE * 2;
+// mosaico: [skinHead][skinBody][peasant] / [ranger][hair][misc: eyes(512) fabric(512) white(512) fabric2(512)]
+const TILES = { head: [0, 0, 1, 1], body: [1, 0, 1, 1], peasant: [2, 0, 1, 1], ranger: [0, 1, 1, 1], hair: [1, 1, 1, 1], eyes: [2, 1, 0.5, 0.5], fabric: [2.5, 1, 0.5, 0.5], white: [2, 1.5, 0.5, 0.5], wool: [2.5, 1.5, 0.5, 0.5] };
+function tileOf(matName) {
+  if (/Superhero/.test(matName)) return 'head';
+  if (/Regular/.test(matName)) return 'body';
+  if (/Peasant/.test(matName)) return 'peasant';
+  if (/Ranger/.test(matName)) return 'ranger';
+  if (/Hair|Brow/i.test(matName)) return 'hair';
+  if (/Eye/.test(matName)) return 'eyes';
+  return 'white';
+}
+function canvas() { const c = document.createElement('canvas'); c.width = AW; c.height = AH; return c; }
+// Tejido procedural (lino/lana) en escala de grises claros: hilos finos, motas y variación suave
+function hash(x, y) { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); }
+function vnoise(x, y) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fabricVal(x, y, size, coarse) {
+  const f = coarse ? 1.6 : 1.0;
+  const tx = Math.sin((x / size) * Math.PI * 2 * (coarse ? 140 : 220)), ty = Math.sin((y / size) * Math.PI * 2 * (coarse ? 140 : 220));
+  const weave = ((Math.floor(x / (coarse ? 3 : 2)) + Math.floor(y / (coarse ? 3 : 2))) % 2) ? tx : ty;
+  const slub = vnoise(x / (3 * f), y / (40 * f)) - 0.5; // irregularidad del hilo
+  const mott = vnoise(x / 60, y / 60) - 0.5 + (vnoise(x / 17, y / 17) - 0.5) * 0.5;
+  return 222 + weave * (coarse ? 5 : 3) + slub * 14 + mott * 18 + (hash(x, y) - 0.5) * 6;
+}
+function fabricTile(ctx, ox, oy, size, coarse) {
+  const img = ctx.createImageData(size, size); const d = img.data;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const v = fabricVal(x, y, size, coarse);
+    const i = (y * size + x) * 4; d[i] = v; d[i + 1] = v; d[i + 2] = v * 0.985; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, ox, oy);
+}
+function fabricNormal(ctx, ox, oy, size, coarse) {
+  const img = ctx.createImageData(size, size); const d = img.data; const k = coarse ? 0.05 : 0.035;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const h0 = fabricVal(x, y, size, coarse), hx = fabricVal(x + 1, y, size, coarse), hy = fabricVal(x, y + 1, size, coarse);
+    const nx = (h0 - hx) * k, ny = (h0 - hy) * k; const l = Math.hypot(nx, ny, 1);
+    const i = (y * size + x) * 4; d[i] = 128 + (nx / l) * 127; d[i + 1] = 128 + (ny / l) * 127; d[i + 2] = 128 + (1 / l) * 127; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, ox, oy);
+}
+function drawTex(ctx, tex, key, fallback) {
+  const [tx, ty, tw, th] = TILES[key];
+  const x = tx * TILE, y = ty * TILE, w = tw * TILE, h = th * TILE;
+  if (tex && tex.image) ctx.drawImage(tex.image, x, y, w, h);
+  else { ctx.fillStyle = fallback; ctx.fillRect(x, y, w, h); }
+}
+function headOnly(geo, skeleton) {
+  const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index.array;
+  const keep = new Set(['Head', 'neck_01'].map((n) => skeleton.bones.findIndex((b) => b.name === n)));
+  const w = (v) => { let s = 0; for (let k = 0; k < 4; k++) if (keep.has(si.getComponent(v, k))) s += sw.getComponent(v, k); return s; };
+  const out = [];
+  for (let i = 0; i < idx.length; i += 3) { const a = idx[i], b = idx[i + 1], c = idx[i + 2]; if (w(a) > 0.5 && w(b) > 0.5 && w(c) > 0.5) out.push(a, b, c); }
+  const g = geo.clone(); g.setIndex(out); return g;
+}
+async function buildKit(sex) {
+  const S = sex === 'm' ? 'Male' : 'Female';
+  const files = {
+    head: B + `Superhero_${S}_FullBody.gltf`, peasant: O + `${S}_Peasant.gltf`, ranger: O + `${S}_Ranger.gltf`,
+    ...(sex === 'm' ? { beard: H + 'Hair_Beard.gltf', parted: H + 'Hair_SimpleParted.gltf', buzzed: H + 'Hair_Buzzed.gltf', long: H + 'Hair_Long.gltf', brows: H + 'Eyebrows_Regular.gltf' }
+      : { long: H + 'Hair_Long.gltf', buns: H + 'Hair_Buns.gltf', buzzedf: H + 'Hair_BuzzedFemale.gltf', brows: H + 'Eyebrows_Female.gltf' }),
+  };
+  const G = {}; for (const [k, u] of Object.entries(files)) G[k] = await L.loadAsync(u);
+  // esqueleto de referencia: el del traje de campesino
+  const ref = G.peasant.scene; let refMesh = null; ref.traverse((o) => { if (o.isSkinnedMesh && !refMesh) refMesh = o; });
+  const skel = refMesh.skeleton;
+  const boneIdx = new Map(skel.bones.map((b, i) => [b.name, i]));
+  // atlas
+  const cB = canvas(), cN = canvas(), cR = canvas();
+  const xB = cB.getContext('2d'), xN = cN.getContext('2d'), xR = cR.getContext('2d');
+  xB.clearRect(0, 0, AW, AH); xN.fillStyle = 'rgb(128,128,255)'; xN.fillRect(0, 0, AW, AH); xR.fillStyle = 'rgb(255,200,0)'; xR.fillRect(0, 0, AW, AH);
+  const done = new Set();
+  const parts = [];
+  for (const [k, g] of Object.entries(G)) {
+    g.scene.updateMatrixWorld(true);
+    g.scene.traverse((o) => {
+      if (!o.isSkinnedMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      const groups = o.geometry.groups.length ? o.geometry.groups : [{ start: 0, count: o.geometry.index.count, materialIndex: 0 }];
+      for (const gr of groups) {
+        const mat = mats[gr.materialIndex]; const tk = tileOf(mat.name);
+        if (!done.has(tk)) {
+          done.add(tk);
+          drawTex(xB, mat.map, tk, '#ffffff'); drawTex(xN, mat.normalMap, tk, 'rgb(128,128,255)'); drawTex(xR, mat.roughnessMap || mat.metalnessMap, tk, 'rgb(255,200,0)');
+          log(sex, k, 'mat', mat.name, '->', tk, 'map', !!mat.map, 'normal', !!mat.normalMap, 'rough', !!mat.roughnessMap, mat.roughnessMap === mat.metalnessMap);
+        }
+        let geo = o.geometry.clone();
+        geo.setIndex(Array.from(o.geometry.index.array.slice(gr.start, gr.start + gr.count)));
+        if (k === 'head' && tk === 'head') geo = headOnly(geo, o.skeleton);
+        // uv al atlas
+        const uv = geo.attributes.uv; let mn = [9, 9], mx = [-9, -9];
+        const [tx, ty, tw, th] = TILES[tk];
+        const nu = new Float32Array(uv.count * 2);
+        for (let i = 0; i < uv.count; i++) {
+          let u = uv.getX(i), v = uv.getY(i); mn = [Math.min(mn[0], u), Math.min(mn[1], v)]; mx = [Math.max(mx[0], u), Math.max(mx[1], v)];
+          u = Math.min(Math.max(u, 0), 1); v = Math.min(Math.max(v, 0), 1);
+          nu[i * 2] = (tx + u * tw) * TILE / AW; nu[i * 2 + 1] = (ty + v * th) * TILE / AH;
+        }
+        if (mn[0] < -0.01 || mn[1] < -0.01 || mx[0] > 1.01 || mx[1] > 1.01) log('UV fuera de rango', k, mat.name, mn, mx);
+        geo.setAttribute('uv', new THREE.BufferAttribute(nu, 2));
+        // reasignar huesos al esqueleto de referencia
+        const map = o.skeleton.bones.map((b) => boneIdx.get(b.name) ?? 0);
+        const si = geo.attributes.skinIndex; const sia = new Uint16Array(si.count * 4);
+        for (let i = 0; i < si.count; i++) for (let c = 0; c < 4; c++) sia[i * 4 + c] = map[si.getComponent(i, c)];
+        geo.setAttribute('skinIndex', new THREE.BufferAttribute(sia, 4));
+        for (const n of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(n)) geo.deleteAttribute(n);
+        // misma matriz de enlace que la referencia
+        const mm = new THREE.Matrix4().copy(refMesh.bindMatrix).invert().multiply(o.bindMatrix);
+        geo.applyMatrix4(mm);
+        const name = k === 'head' ? (tk === 'head' ? 'head' : tk === 'eyes' ? 'eyes' : 'lashes') : `${k}_${(o.name || 'part').replace(/^(Male|Female)_(Peasant|Ranger)_/, '').toLowerCase()}_${tk}`;
+        parts.push({ name, geo });
+      }
+    });
+  }
+  // tejidos procedurales
+  const [fx, fy, fw] = TILES.fabric; fabricTile(xB, fx * TILE, fy * TILE, fw * TILE, false); fabricNormal(xN, fx * TILE, fy * TILE, fw * TILE, false);
+  const [wx, wy, ww] = TILES.wool; fabricTile(xB, wx * TILE, wy * TILE, ww * TILE, true); fabricNormal(xN, wx * TILE, wy * TILE, ww * TILE, true);
+  const [ex, ey, ew] = TILES.white; xB.fillStyle = '#ffffff'; xB.fillRect(ex * TILE, ey * TILE, ew * TILE, ew * TILE);
+  for (const [k, c] of [['fabric', 'rgb(255,235,0)'], ['wool', 'rgb(255,250,0)'], ['white', 'rgb(255,140,0)']]) { const [a, b, s] = TILES[k]; xR.fillStyle = c; xR.fillRect(a * TILE, b * TILE, s * TILE, s * TILE); }
+  // canal B (metal) a cero y R (oclusión) a 255 en el mapa de rugosidad
+  { const id = xR.getImageData(0, 0, AW, AH); const d = id.data; for (let i = 0; i < d.length; i += 4) { d[i] = 255; d[i + 2] = 0; } xR.putImageData(id, 0, 0); }
+  const mk = (c, srgb) => { const t = new THREE.CanvasTexture(c); t.flipY = false; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const mat = new THREE.MeshStandardMaterial({ name: 'Atlas_' + sex, map: mk(cB, true), normalMap: mk(cN), roughnessMap: mk(cR), metalnessMap: mk(cR), metalness: 1, roughness: 1, alphaTest: 0.5, side: THREE.DoubleSide });
+  // escena de salida: esqueleto + piezas
+  const out = new THREE.Group(); out.name = 'kit_' + sex;
+  const armature = ref.clone(true); // incluye huesos
+  const bones = {}; armature.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const toRemove = []; armature.traverse((o) => { if (o.isMesh) toRemove.push(o); });
+  const meshParent = refMesh.parent ? armature.getObjectByName(refMesh.parent.name) || armature : armature;
+  toRemove.forEach((o) => o.parent.remove(o));
+  const newSkel = new THREE.Skeleton(skel.bones.map((b) => bones[b.name]), skel.boneInverses.map((m) => m.clone()));
+  for (const p of parts) {
+    const m = new THREE.SkinnedMesh(p.geo, mat); m.name = p.name;
+    m.position.copy(refMesh.position); m.quaternion.copy(refMesh.quaternion); m.scale.copy(refMesh.scale);
+    meshParent.add(m); m.bind(newSkel, refMesh.bindMatrix.clone());
+  }
+  out.add(armature);
+  for (const p of parts) log(sex, 'part', p.name, p.geo.index ? p.geo.index.count / 3 : 0);
+  const buf = await new GLTFExporter().parseAsync(out, { binary: true, maxTextureSize: 4096 });
+  let s = ''; const b8 = new Uint8Array(buf); for (let i = 0; i < b8.length; i += 0x8000) s += String.fromCharCode.apply(null, b8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+window.OUT = { m: await buildKit('m'), f: await buildKit('f') };
+window.DONE = true;
+</script></body></html>

@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { addDetail } from './materials.js';
+import { HumanKit } from './people.js';
 
 // La ruta de los modelos puede fijarse desde la página (window.BELEN_MODELS); si no, es ../models/ respecto a este módulo
 export const MODELS_URL = (typeof window !== 'undefined' && window.BELEN_MODELS) || new URL('../models/', import.meta.url).href;
@@ -16,13 +18,13 @@ function base64ToBuffer(b64) {
   return out.buffer;
 }
 
-const CHARACTER_FILES = ['M_Farmer', 'M_King', 'M_Adventurer', 'M_Casual', 'M_Casual2', 'M_Worker', 'W_Medieval', 'W_Casual', 'W_Formal', 'W_Worker'];
-const ANIMAL_FILES = ['Donkey', 'Cow', 'Bull', 'Horse', 'Horse_White', 'Alpaca', 'Husky', 'ShibaInu', 'Deer', 'Stag', 'Fox', 'Wolf'];
+const KIT_FILES = ['kit_m', 'kit_f', 'anims_ual1', 'anims_ual2'];
+const ANIMAL_FILES = ['Donkey', 'Cow', 'Bull', 'Horse', 'Horse_White', 'Husky', 'ShibaInu', 'Deer', 'Stag', 'Fox', 'Wolf'];
 
 // Material compartido: color por vértice, sombreado plano estilo "low poly"
 export const SHARED = {
-  standard: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.0, flatShading: true }),
-  skinned: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.0, flatShading: true }),
+  standard: addDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.0, flatShading: false }), { mode: 'plaster', bump: 0.8 }),
+  skinned: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.0, flatShading: false }),
 };
 
 function toFloatGeometry(g) {
@@ -74,7 +76,8 @@ function bakeStatic(root) {
     g.setAttribute('matid', new THREE.BufferAttribute(mid, 1));
     geos.push(g.index ? g.toNonIndexed() : g);
   });
-  const geometry = mergeGeometries(geos, false);
+  let geometry = mergeGeometries(geos, false);
+  geometry = toCreasedNormals(geometry, THREE.MathUtils.degToRad(48));
   geometry.computeBoundingBox(); geometry.computeBoundingSphere();
   return { geometry, matNames };
 }
@@ -204,8 +207,12 @@ function mergeSkinned(root) {
     g.setAttribute('matid', new THREE.BufferAttribute(mid, 1));
     geos.push(g.index ? g.toNonIndexed() : g);
   }
-  const geometry = mergeGeometries(geos, false);
-  const merged = new THREE.SkinnedMesh(geometry, SHARED.skinned);
+  let geometry = mergeGeometries(geos, false);
+  geometry = toCreasedNormals(geometry, THREE.MathUtils.degToRad(55));
+  geometry.computeBoundingBox();
+  const rawH = geometry.boundingBox.max.y - geometry.boundingBox.min.y || 1;
+  const furMat = addDetail(SHARED.skinned.clone(), { mode: 'fur', objectSpace: true, scale: 1.6 / rawH, bump: 0.7 });
+  const merged = new THREE.SkinnedMesh(geometry, furMat);
   merged.name = 'body';
   ref.parent.add(merged);
   merged.position.copy(ref.position); merged.quaternion.copy(ref.quaternion); merged.scale.copy(ref.scale);
@@ -311,7 +318,7 @@ export class AnimatedTemplate {
 export async function loadAll(onProgress) {
   const manager = new THREE.LoadingManager();
   const loader = new GLTFLoader(manager); loader.setMeshoptDecoder(MeshoptDecoder);
-  const files = ['props', 'anims_human', ...CHARACTER_FILES, ...ANIMAL_FILES];
+  const files = ['props', ...KIT_FILES, ...ANIMAL_FILES];
   let done = 0;
   // si el navegador bloquea WebAssembly (decodificador meshopt), se usan los modelos sin comprimir
   const wasmOk = await MeshoptDecoder.ready.then(() => true, () => false);
@@ -322,18 +329,15 @@ export async function loadAll(onProgress) {
   const load = (f) => fetchModel(f).then((g) => { done++; onProgress?.(done / files.length, f); return g; });
   const results = await Promise.all(files.map(load));
   const byName = Object.fromEntries(files.map((f, i) => [f, results[i]]));
-  const humanClips = byName.anims_human.animations.map(retargetHumanClip);
+  const humanClips = [...byName.anims_ual1.animations, ...byName.anims_ual2.animations];
   const lib = {
     props: new PropLibrary(byName.props),
-    chars: {}, animals: {},
+    kits: { m: new HumanKit(byName.kit_m, humanClips, 'm'), f: new HumanKit(byName.kit_f, humanClips, 'f') },
+    animals: {},
   };
-  const HATS = { M_Farmer: ['Beige', 'Red'], M_Worker: ['Worker_Yellow'], W_Worker: ['Worker_Yellow'] };
-  for (const f of CHARACTER_FILES) {
-    const g = byName[f];
-    lib.chars[f] = new AnimatedTemplate(g, humanClips, { human: true, hideHeadMats: HATS[f] || [] });
-  }
   for (const f of ANIMAL_FILES) {
-    const t = new AnimatedTemplate(byName[f], byName[f].animations);
+    const clips = byName[f].animations.map((c) => { c.tracks = c.tracks.filter((tr) => !tr.name.endsWith('.scale')); return c; });
+    const t = new AnimatedTemplate(byName[f], clips);
     t.back = t.region(['Torso', 'Torso2', 'Back']);
     lib.animals[f] = t;
   }

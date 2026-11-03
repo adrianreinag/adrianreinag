@@ -4,6 +4,7 @@ import { RNG, PathWalker, clamp } from './util.js';
 import { heightAt } from './terrain.js';
 import { SHARED } from './assets.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { T as TINT, SKIN_TONES, HAIR_COLORS, ROBE_COLORS, SCARF_COLORS } from './people.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const AX = V(1, 0, 0), AY = V(0, 1, 0), AZ = V(0, 0, 1);
@@ -186,8 +187,8 @@ export function consolidate(actor) {
 }
 
 export class Actor {
-  constructor(template, { palette = null, height = 1.7, kind = 'human' } = {}) {
-    const inst = template.instance(palette);
+  constructor(template, { palette = null, height = 1.7, kind = 'human', inst = null } = {}) {
+    inst ||= template.instance(palette);
     this.template = template; this.kind = kind;
     this.inner = inst.root; this.body = inst.body; this.bones = inst.bones;
     this.group = new THREE.Group();
@@ -307,91 +308,78 @@ export class Actor {
 }
 
 // ---------- Fábrica de personajes del belén ----------
-const SKIN = [0xe0ad85, 0xd29a6e, 0xc48a5e, 0xb27a50, 0x9a6640, 0xdcb08c];
-const CLOTH = [0x8a5a3a, 0x6f7a4a, 0xa0784a, 0x5b6a8a, 0x9a4a3a, 0xc8b48a, 0x7a5a7a, 0x4f6a5a, 0xb08a5a, 0x8a3a2a, 0x5a5a6a, 0xd8c8a8];
-const SCARF = [0xefe6d0, 0xd8c8a0, 0xb8a07a, 0x9ab0c8, 0xc8a0a0, 0xe0d0b0, 0x8a6a4a, 0xf0e8e0];
-
 export class Cast {
   constructor(lib, scene) { this.lib = lib; this.scene = scene; this.rng = new RNG(77); }
 
-  // Crea una persona vestida al estilo hebreo.
+  // Crea una persona (cabeza y traje realistas + túnica, manto y tocado generados).
+  // Opciones heredadas: female, type ('M_King', 'W_Medieval'...), pose, robe, robeLen, scarf, veil, band, cloak, cloakColor,
+  // staff ('spear'|true), shield, helmet, noRobe, kneelRobe, anim, height, skin, outfit ('peasant'|'ranger'), hood, crown, hair
   person(opts = {}) {
     const r = this.rng;
-    const female = opts.female ?? r.chance(0.45);
-    const type = opts.type || (female ? r.pick(['W_Medieval', 'W_Casual', 'W_Formal', 'W_Worker']) : r.pick(['M_Farmer', 'M_Adventurer', 'M_Casual', 'M_Casual2', 'M_Worker']));
-    const tpl = this.lib.chars[type];
-    const skin = opts.skin ?? r.pick(SKIN);
-    const cloth = opts.robe ?? r.pick(CLOTH);
-    const under = opts.under ?? r.pick(CLOTH);
-    // Repintar la ropa moderna con tonos de tela natural
-    const pal = {};
-    for (const n of tpl.matNames) {
-      if (/Skin/i.test(n)) pal[n] = skin;
-      else if (/Eye|Eyebrow|Hair|Moustache|Black|Gold|Crown/i.test(n)) continue;
-      else pal[n] = (n.length % 2 ? cloth : under);
+    const female = opts.female ?? (opts.type ? opts.type.startsWith('W_') : r.chance(0.45));
+    const kit = this.lib.kits[female ? 'f' : 'm'];
+    const kid = (opts.height ?? 1.7) < 1.35;
+    const king = opts.type === 'M_King' || opts.crown;
+    const soldier = !!opts.helmet;
+    let outfit = opts.outfit || (soldier ? 'ranger' : opts.staff && r.chance(0.5) ? 'ranger' : 'peasant');
+    const hood = opts.hood ?? (outfit === 'ranger' && !soldier && !king && opts.scarf === undefined && r.chance(0.7));
+    // piezas del traje
+    const P = (n) => n;
+    let parts = ['head', 'eyes', 'lashes'];
+    if (outfit === 'peasant') parts.push(...(female ? ['peasant_arms_peasant', 'peasant_body_peasant', 'peasant_feet_peasant', 'peasant_legs_peasant'] : ['peasant_arms_1_peasant', 'peasant_arms_2_body', 'peasant_body_peasant', 'peasant_feet_peasant', 'peasant_legs_peasant']));
+    else parts.push('ranger_arms_1_ranger', 'ranger_arms_2_body', 'ranger_body_ranger', female ? 'ranger_feet_ranger' : 'ranger_feet_boots_ranger', 'ranger_legs_ranger', 'ranger_arms_bracer_ranger', ...(opts.noRobe ? ['ranger_body_belt_1_ranger'] : []));
+    if (soldier) parts.push(female ? 'ranger_acc_pauldrons_ranger' : 'ranger_acc_pauldron_ranger');
+    if (hood) parts.push('ranger_head_hood_ranger');
+    // tocado
+    const scarfColor = hood || soldier || king ? null : (opts.scarf === undefined ? (female ? r.pick(SCARF_COLORS) : (r.chance(0.8) ? r.pick(SCARF_COLORS) : null)) : opts.scarf);
+    const covered = !!scarfColor || hood || soldier;
+    // pelo
+    if (female) parts.push(covered ? 'buzzedf_hair_buzzedfemale_hair' : (opts.hair || r.pick(['long_hair_long_hair', 'buns_hair_buns_hair'])));
+    else {
+      if (!kid && (king || opts.beard || r.chance(0.75))) parts.push('beard_hair_beard_hair');
+      parts.push(covered || king ? 'buzzed_hair_buzzed_hair' : (opts.hair || r.pick(['parted_hair_simpleparted_hair', 'buzzed_hair_buzzed_hair', 'long_hair_long_hair'])));
     }
-    if (type === 'M_King') { pal.Skin = skin; Object.assign(pal, opts.kingPalette || {}); }
-    if (opts.palette) Object.assign(pal, opts.palette);
-    const height = opts.height ?? (female ? r.range(1.56, 1.66) : r.range(1.66, 1.78));
-    const a = new Actor(tpl, { palette: pal, height });
-    a.female = female; a.type = type;
-    if (opts.pose) a.pose(...[].concat(opts.pose));
-    // túnica, tocado y capa
-    this.dress(a, { robe: opts.robe ?? cloth, robeLen: opts.robeLen, scarf: opts.scarf === undefined ? r.pick(SCARF) : opts.scarf, veil: opts.veil ?? female, cloak: opts.cloak, band: opts.band ?? (!female && r.chance(0.6)), cloakColor: opts.cloakColor, noRobe: opts.noRobe, kneelRobe: opts.kneelRobe, helmet: opts.helmet, robeBottom: opts.robeBottom });
+    // ropa generada
+    const robeColor = opts.noRobe ? null : (opts.robe === undefined ? r.pick(ROBE_COLORS) : opts.robe);
+    const spec = { parts };
+    if (robeColor !== null) spec.robe = { short: soldier || (opts.robeLen !== undefined && opts.robeLen < 0.7), wide: opts.kneelRobe ? 1.12 : 1, dress: opts.dress ?? (female && !soldier) };
+    if (opts.cloak) spec.cloak = { length: soldier ? 0.55 : 0.22 };
+    if (scarfColor) spec.scarf = { veil: opts.veil ?? female };
+    if (scarfColor && !female && (opts.band ?? r.chance(0.6))) spec.band = true;
+    if (king) spec.crown = true;
+    if (soldier) spec.helmet = true;
+    if (robeColor !== null) spec.belt = true;
+    // paleta
+    const pal = {};
+    let skin = r.pick(SKIN_TONES);
+    if (opts.skin !== undefined) { const c = new THREE.Color(opts.skin); const l = c.r * 0.3 + c.g * 0.59 + c.b * 0.11; if (l < 0.25) skin = 0x7a5c4a; }
+    pal[TINT.SKIN] = skin;
+    const grey = !kid && !female && r.chance(king ? 0.5 : 0.2);
+    pal[TINT.HAIR] = opts.hairColor ?? (grey ? r.pick([0x8a8478, 0xc8c4bc]) : r.pick(HAIR_COLORS.slice(0, 4)));
+    pal[TINT.OUTFIT] = opts.outfitTint ?? (soldier ? 0xc8604a : king ? 0xf0c878 : outfit === 'ranger' ? r.pick([0xd8b890, 0xc8a878, 0xe0c8a0, 0xb8a080]) : r.pick([0xffffff, 0xf0e0c8, 0xe8d8c0, 0xd8d0c8]));
+    if (robeColor !== null) pal[TINT.ROBE] = robeColor;
+    pal[TINT.CLOAK] = opts.cloakColor ?? r.pick(ROBE_COLORS);
+    if (scarfColor) pal[TINT.SCARF] = scarfColor;
+    pal[TINT.BAND] = 0x3a2a1e;
+    pal[TINT.GOLD] = soldier ? 0xb08a50 : 0xf2c460;
+    pal[TINT.ACCENT] = 0xb02020;
+    const height = opts.height ?? (female ? r.range(1.58, 1.68) : r.range(1.68, 1.8));
+    const inst = kit.instance(spec, pal);
+    const a = new Actor(kit, { height, inst });
+    a.female = female; a.type = opts.type; a.kit = kit;
+    // posturas: sentarse y lavar usan animaciones propias
+    let poses = [].concat(opts.pose || []);
+    let anim = opts.anim;
+    if (poses.includes('sit')) { poses = poses.filter((p) => p !== 'sit'); anim = r.chance(0.5) ? 'Sitting_Talking_Loop' : 'Sitting_Idle_Loop'; }
+    if (poses.includes('wash')) { poses = poses.filter((p) => p !== 'wash'); anim = 'Fixing_Kneeling'; }
+    if (poses.includes('hammer')) { poses = poses.filter((p) => p !== 'hammer'); anim = 'TreeChopping_Loop'; }
+    if (poses.length) a.pose(...poses);
     if (opts.staff) a.attach('HandR', opts.staff === 'spear' ? spearMesh() : staffMesh(), a.bonePos('HandR').add(V(0, -0.95, 0.03)));
-    if (opts.shield) { const sh = clothMesh(new THREE.CylinderGeometry(0.42, 0.42, 0.9, 10, 1, true, -0.9, 1.8).toNonIndexed(), 0xa02020); a.attach('LowerArmL', sh, a.bonePos('HandL').add(V(0.12, 0.05, 0.08)), new THREE.Quaternion().setFromAxisAngle(AY, Math.PI / 2)); }
-    if (opts.anim !== false) a.play(opts.anim || 'Idle', { timeScale: opts.animSpeed ?? r.range(0.85, 1.1) });
+    if (opts.shield) { const sh = clothMesh(new THREE.CylinderGeometry(0.42, 0.42, 0.9, 12, 1, true, -0.9, 1.8).toNonIndexed(), 0xa02020); a.attach('LowerArmL', sh, a.bonePos('HandL').add(V(0.12, 0.05, 0.08)), new THREE.Quaternion().setFromAxisAngle(AY, Math.PI / 2)); }
+    if (anim !== false) a.play(anim || 'Idle', { timeScale: opts.animSpeed ?? r.range(0.85, 1.1) });
     this.scene.add(a.group);
     consolidate(a);
     return a;
-  }
-
-  dress(a, { robe, robeLen, scarf, veil, cloak, band, cloakColor, noRobe, kneelRobe, helmet, robeBottom }) {
-    a.applyOverrides(); a.inner.updateMatrixWorld(true);
-    const hips = a.bonePos('Hips');
-    const head = a.bonePos('Head');
-    const posed = !!a._posedState;
-    const ground = 0; // el suelo está en y=0 del grupo
-    if (!noRobe && robe !== null) {
-      const top = hips.y + 0.1;
-      const len = Math.max(0.3, (robeLen ?? (top - (posed ? ground + 0.02 : (a.female ? 0.08 : 0.2)))));
-      const wide = kneelRobe || posed;
-      const g = robeGeometry({ top: 0.17, bottom: robeBottom ?? (wide ? 0.4 : (a.female ? 0.25 : 0.22)), length: len, depth: wide ? 1.05 : 0.85 });
-      const m = clothMesh(g, robe);
-      const zoff = wide ? 0.08 : 0.0;
-      a.attach('Hips', m, V(hips.x, top, hips.z + zoff));
-      // cinturón
-      const belt = clothMesh(new THREE.CylinderGeometry(0.185, 0.19, 0.05, 12, 1, true).toNonIndexed(), 0x5a3a22);
-      belt.scale.z = 0.85; a.attach('Hips', belt, V(hips.x, top - 0.02, hips.z));
-    }
-    if (scarf) {
-      const hf = a.headFrame();
-      const R = hf.r * 1.06;
-      const g = scarfGeometry({ r: R, drop: veil ? 0.36 : 0.24, open: veil ? 1.7 : 1.5, longBack: veil ? 0.14 : 0.02, capTheta: 0.42 });
-      const m = clothMesh(g, scarf);
-      const c = hf.pos.clone().add(V(0, hf.size.y * 0.04, -0.012).applyQuaternion(hf.quat));
-      a.attach('Head', m, c, hf.quat);
-      if (band) {
-        const t = clothMesh(new THREE.TorusGeometry(R * 0.98, 0.016, 4, 16).toNonIndexed(), 0x3a2a20);
-        const q = hf.quat.clone().multiply(new THREE.Quaternion().setFromAxisAngle(AX, Math.PI / 2 - 0.12));
-        a.attach('Head', t, c.clone().add(V(0, R * 0.42, 0).applyQuaternion(hf.quat)), q);
-      }
-    }
-    if (helmet) {
-      const hf = a.headFrame(); const R = hf.r * 1.1;
-      const hg = new THREE.SphereGeometry(R, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5).toNonIndexed();
-      const hm = clothMesh(hg, 0xb8903a);
-      a.attach('Head', hm, hf.pos.clone().add(V(0, hf.size.y * 0.08, 0).applyQuaternion(hf.quat)), hf.quat);
-      const crest = clothMesh(new THREE.BoxGeometry(0.035, 0.12, R * 2.1).toNonIndexed(), 0xb02020);
-      a.attach('Head', crest, hf.pos.clone().add(V(0, hf.size.y * 0.08 + R + 0.04, 0).applyQuaternion(hf.quat)), hf.quat);
-    }
-    if (cloak) {
-      const chest = a.bonePos('Chest');
-      const g = cloakGeometry({ top: chest.y + 0.12, bottom: posed ? ground + 0.05 : 0.18, w: 0.26 });
-      const m = clothMesh(g, cloakColor ?? 0x6a4a3a);
-      m.geometry.translate(0, -chest.y, 0);
-      a.attach('Chest', m, V(0, chest.y, chest.z - 0.02));
-    }
   }
 
   // Animal animado
@@ -403,26 +391,31 @@ export class Cast {
     return a;
   }
 
-  // Camello: alpaca recoloreada, cuello curvado, joroba y manta
+  // Camello (dromedario): caballo con patas y cuello alargados, cabeza menor, cuello en "S" y gran joroba
   camel(opts = {}) {
-    const a = this.animal('Alpaca', { palette: { Main: 0xc39456, Main_Light: 0xd8b27c, Main_Dark: 0x7a5a36, Muzzle: 0x5a3e24, Hooves: 0x4a3a2a }, height: opts.height ?? 3.3, anim: opts.anim, animSpeed: opts.animSpeed });
-    a.poseSteps([['Neck1', AX, 42], ['Neck2', AX, 8], ['Neck3', AX, -38], ['Head', AX, -22]]);
+    const a = this.animal('Horse', { palette: { Main: 0xc49a62, Main_Light: 0xdcb886, Main_Dark: 0x9a7448, Hair: 0x8a6440, Muzzle: 0x6a4e34, Hooves: 0x4a3a2a }, height: opts.height ?? 2.35, anim: opts.anim, animSpeed: opts.animSpeed });
+    const B = a.bones;
+    const sc = (n, x, y, z) => { if (B[n]) B[n].scale.set(x, y, z); };
+    sc('Neck1', 0.8, 1.18, 0.8); sc('Neck2', 0.84, 1.22, 0.84); sc('Neck3', 0.9, 1.12, 0.9); sc('Head', 0.82, 0.82, 0.86);
+    a.poseSteps([['Neck1', AX, 20], ['Neck2', AX, 4], ['Neck3', AX, -30], ['Head', AX, -12]]);
+    a.inner.updateMatrixWorld(true);
     const H = a.template.height;
     const bk = a.template.back.box;
-    const top = bk.max.y, cz = (bk.min.z + bk.max.z) / 2 + (bk.max.z - bk.min.z) * 0.05;
-    const hr = H * 0.115;
-    const humpG = new THREE.SphereGeometry(hr, 10, 7); humpG.scale(0.95, 0.85, 1.25);
-    const hump = clothMesh(humpG.toNonIndexed(), 0xc39456);
-    a.attach('Torso', hump, V(0, top - hr * 0.25, cz));
+    const top = bk.max.y, cz = (bk.min.z + bk.max.z) / 2 - (bk.max.z - bk.min.z) * 0.04;
+    const hr = H * 0.15;
+    const humpG = new THREE.SphereGeometry(hr, 16, 12); humpG.scale(0.85, 0.95, 1.25);
+    const hump = clothMesh(humpG.toNonIndexed(), 0xb48a56); hump.userData.keep = true;
+    hump.material = a.body.material; // mismo pelaje que el cuerpo
+    a.attach('Torso', hump, V(0, top - hr * 0.2, cz));
     if (opts.blanket !== false) {
-      const bg = new THREE.CylinderGeometry(hr * 1.12, hr * 1.12, hr * 2.0, 12, 1, true, -Math.PI / 2, Math.PI); bg.rotateX(Math.PI / 2);
+      const bg = new THREE.CylinderGeometry(hr * 1.05, hr * 1.05, hr * 1.9, 18, 1, true, -Math.PI / 2, Math.PI); bg.rotateX(Math.PI / 2);
       const bl = clothMesh(bg.toNonIndexed(), opts.blanket ?? 0xa03028);
-      bl.scale.set(1.18, 1.0, 1.0);
-      a.attach('Torso', bl, V(0, top - hr * 0.35, cz));
-      for (let i = 0; i < 7; i++) { const t = clothMesh(new THREE.BoxGeometry(H * 0.012, H * 0.05, H * 0.012).toNonIndexed(), opts.fringe ?? 0xe8c050); const ang = -Math.PI / 2 + (i / 6) * Math.PI; for (const sd of [-1, 1]) a.attach('Torso', t.clone(), V(sd * hr * 1.28, top - hr * 1.15, cz - hr * 1.0 + (i / 6) * hr * 2.0)); }
-      if (opts.bags) for (const s of [-1, 1]) { const b = clothMesh(new THREE.BoxGeometry(hr * 0.5, hr * 0.9, hr * 1.1).toNonIndexed(), opts.bags); a.attach('Torso', b, V(s * hr * 1.25, top - hr * 1.3, cz)); }
+      bl.scale.set(1.12, 1.0, 1.0);
+      a.attach('Torso', bl, V(0, top - hr * 0.42, cz));
+      for (let i = 0; i < 7; i++) { const t = clothMesh(new THREE.BoxGeometry(H * 0.012, H * 0.05, H * 0.012).toNonIndexed(), opts.fringe ?? 0xe8c050); for (const sd of [-1, 1]) a.attach('Torso', t.clone(), V(sd * hr * 1.16, top - hr * 1.18, cz - hr * 0.95 + (i / 6) * hr * 1.9)); }
+      if (opts.bags) for (const s of [-1, 1]) { const b = clothMesh(new THREE.BoxGeometry(hr * 0.45, hr * 0.8, hr * 1.0).toNonIndexed(), opts.bags); a.attach('Torso', b, V(s * hr * 1.2, top - hr * 1.25, cz)); }
     }
-    a.humpTop = V(0, top + hr * 0.5, cz);
+    a.humpTop = V(0, top + hr * 0.62, cz);
     consolidate(a);
     return a;
   }
@@ -466,7 +459,7 @@ export function babyMesh() {
 
 // Ángel: figura con túnica blanca, alas y aureola
 export function angelFigure(cast, { height = 1.9, banner = null } = {}) {
-  const a = cast.person({ type: 'W_Formal', female: true, height, robe: 0xf8f4ec, scarf: null, pose: ['armsDown'], palette: { LimeGreen: 0xf2eee4, Red: 0xf2eee4, Gold: 0xe8c060, Brown: 0xc89a50 }, skin: 0xf0d0b0, anim: 'Idle' });
+  const a = cast.person({ female: true, height, robe: 0xf6f2ea, cloak: true, cloakColor: 0xfaf6ee, scarf: null, hair: 'long_hair_long_hair', hairColor: 0xd8b878, outfitTint: 0xffffff, pose: ['armsDown'], anim: 'Idle' });
   // alas
   const wingShape = new THREE.Shape();
   wingShape.moveTo(0, 0); wingShape.bezierCurveTo(0.25, 0.25, 0.6, 0.55, 0.95, 0.75); wingShape.bezierCurveTo(0.8, 0.45, 0.75, 0.2, 0.7, 0.0);
@@ -488,7 +481,7 @@ export function angelFigure(cast, { height = 1.9, banner = null } = {}) {
   // el ángel brilla con luz propia
   const glowCloth = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true, side: THREE.DoubleSide, emissive: 0xfff2dc, emissiveIntensity: 0.45 });
   a.group.traverse((o) => { if (o.isMesh && o.material === clothMat) o.material = glowCloth; });
-  a.body.material = SHARED.skinned.clone(); a.body.material.emissive = new THREE.Color(0xfff0dc); a.body.material.emissiveIntensity = 0.3;
+  a.body.material.emissive = new THREE.Color(0xfff0dc); a.body.material.emissiveIntensity = 0.22;
   a.isAngel = true;
   return a;
 }

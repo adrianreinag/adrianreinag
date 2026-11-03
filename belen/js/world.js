@@ -5,6 +5,7 @@ import { LOC, ROADS, riverX, waterLevel, heightAt, buildTerrain, buildRiver, bui
 import { Instancer, SHARED } from './assets.js';
 import { Cast, babyMesh, angelFigure, staffMesh, jarMesh, lanternMesh, ACTORS } from './actors.js';
 import { GeoBuilder, hebrewHouse, cityWalls, buildPortal, stoneBridge, waterMill, bakeryOven, forge, rockBlob, frame, footprint, WALL_COLORS } from './builder.js';
+import { addDetail } from './materials.js';
 import { makeFire, makeSmoke, makeGlowSprite, makeDoves, makeDucks, makeClouds, makeBanner, makeFireflies, makeEmbers, UPDATERS, NIGHT_LIGHTS } from './effects.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -17,10 +18,11 @@ export class World {
     this.rng = new RNG(1225);
     this.inst = new Instancer(scene, lib.props);
     this.cast = new Cast(lib, scene);
-    this.buildingMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, flatShading: true });
+    this.buildingMat = addDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, flatShading: true }), { mode: 'surf', bump: 1.0 });
     this.windowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, emissive: new THREE.Color(1.0, 0.62, 0.28), emissiveIntensity: 0, flatShading: true });
     this.glowMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: new THREE.Color(1, 0.45, 0.12), emissiveIntensity: 2.5, roughness: 0.8 });
-    this.B = new GeoBuilder(); this.W = new GeoBuilder(); this.G = new GeoBuilder();
+    this.B = new GeoBuilder(); this.W = new GeoBuilder(); this.G = new GeoBuilder(); this.RB = new GeoBuilder();
+    this.rockMat = addDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0, flatShading: false }), { mode: 'surf', bump: 1.6 });
     this.flocks = []; this.spin = [];
     this.poi = {};
   }
@@ -84,8 +86,10 @@ export class World {
         a += (w + gap) / r;
       }
     });
-    // la plaza: pozo, mercado y palmeras
+    // la plaza: empedrado, pozo, mercado y palmeras
     const pc = V(T.x, heightAt(T.x, T.z), T.z);
+    B.add(new THREE.CylinderGeometry(15.5, 15.5, 0.3, 40), 0xcdb28a, { x: T.x, y: pc.y - 0.1, z: T.z, surf: 1 });
+    B.add(new THREE.TorusGeometry(15.5, 0.18, 4, 48), 0xb89c74, { x: T.x, y: pc.y + 0.04, z: T.z, rx: Math.PI / 2, surf: 1 });
     this.prop('v_Well', T.x + 4, T.z + 3, { h: 2.6, ry: 0.4 });
     this.prop('r_Market_FirstAge_Level2', T.x - 3, T.z - 2, { h: 3.4, ry: 0.2 });
     const stands = [['v_MarketStand_1', 9.5, 0.3], ['v_MarketStand_2', 8.5, 1.1], ['v_MarketStand_1', 10, 2.0], ['v_MarketStand_2', 9.5, 3.4], ['v_MarketStand_1', 9.5, 4.3], ['v_MarketStand_2', 10, 5.4]];
@@ -168,14 +172,14 @@ export class World {
       const n = rng.int(2, 3);
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2 + rng.range(0, 1); const x = T.x + dx + Math.cos(a) * 0.9, z = T.z + dz + Math.sin(a) * 0.9;
-        const p = cast.person({ anim: rng.chance(0.25) ? 'Wave' : 'Idle' });
+        const p = cast.person({ anim: rng.pick(['Idle_Talking_Loop', 'Idle_Talking_Loop', 'Idle_Loop', 'Idle_FoldArms_Loop', 'Yes']) });
         p.place(x, z, Math.atan2(T.x + dx - x, T.z + dz - z));
       }
     }
     // vendedores tras los puestos
     for (const a of [0.3, 1.1, 2.0, 3.4, 4.3, 5.4]) {
       const x = T.x + Math.cos(a) * 11.1, z = T.z + Math.sin(a) * 11.1;
-      const p = cast.person({ anim: rng.chance(0.5) ? 'Interact' : 'Idle' });
+      const p = cast.person({ anim: rng.pick(['Idle_Talking_Loop', 'Interact', 'Idle_FoldArms_Loop', 'PickUp_Table']) });
       p.place(x, z, Math.atan2(-Math.cos(a), -Math.sin(a)));
     }
     // mujer sacando agua del pozo
@@ -206,8 +210,7 @@ export class World {
     makeEmbers(scene, V(fx, fy + 1.2, fz), { count: 20, height: 2.5, spread: 0.6 });
     const smith = cast.person({ type: 'M_Worker', female: false, robe: 0x5a4a3a, scarf: null, pose: ['hammer'], anim: 'Idle', noRobe: false, robeLen: 0.6 });
     const sp = V(1.6, 0, 1.1).applyMatrix4(frame(fx, fy, fz, 0.5)); smith.place(sp.x, sp.z, 0.5 - Math.PI / 2 + 0.6);
-    const arm = smith.bones.LowerArmR; const q0 = arm.quaternion.clone();
-    smith.extra.push(((t0) => (dt) => { t0 += dt; const k = Math.max(0, Math.sin(t0 * 4)); const q = q0.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -k * 0.9)); for (const o of smith.overrides) if (o[0] === arm) o[1].copy(q); })(0));
+    // el herrero golpea con la animación de martilleo
     this.poi.forge = V(fx, fy, fz);
     // horno de pan con la panadera
     const bx = 11, bz = -20, by = heightAt(bx, bz);
@@ -224,7 +227,7 @@ export class World {
     // carpintero
     const cx = 15, cz = -7, cy = heightAt(cx, cz);
     this.prop('r_Logs', cx, cz, { h: 0.9, ry: 0.6 });
-    const carp = cast.person({ female: false, anim: 'Interact', robe: 0x6a5a3a, scarf: 0xd8c8a0 }); carp.place(cx - 1.6, cz + 1.6, 2.4);
+    const carp = cast.person({ female: false, anim: 'TreeChopping_Loop', robe: 0x6a5a3a, scarf: 0xd8c8a0 }); carp.place(cx - 1.6, cz + 1.6, 2.4);
     const spinner = cast.person({ female: true, pose: ['sit'], anim: 'Idle_Neutral', robe: 0x8a5a6a }); spinner.place(-4, -12, 0.6);
     this.prop('n_Rock_5', -4 - Math.sin(0.6) * 0.2, -12 - Math.cos(0.6) * 0.2, { h: 0.42 });
     for (let i = 0; i < 5; i++) { const j = jarMesh(0xc8a060, rng.range(1.0, 1.6)); j.scale.y *= 0.5; j.position.set(-2.6 + i * 0.5, heightAt(-2.6 + i * 0.5, -10.5), -10.5); scene.add(j); }
@@ -241,14 +244,14 @@ export class World {
   // ---------------------------------------------------------------- portal
   buildPortalScene() {
     const { B, rng, cast, scene } = this; const P = LOC.portal; const y = LOC.portal.h;
-    const info = buildPortal(B, { x: P.x, z: P.z, y, rng });
+    const info = buildPortal(B, { x: P.x, z: P.z, y, rng, rockBuilder: this.RB });
     this.poi.portal = V(P.x, y, P.z);
     const L = (lx, lz) => [P.x + lx, P.z + lz];
     // el Niño en el pesebre
     const baby = babyMesh(); baby.position.copy(info.manger); baby.rotation.y = 0.15; scene.add(baby);
     makeGlowSprite(scene, info.manger.clone().add(V(0.1, 0.25, 0)), { size: 2.2, color: 0xffe0a0, opacity: 0.35 });
     // la Virgen María
-    const maria = cast.person({ type: 'W_Medieval', female: true, pose: ['kneel2', 'pray'], robe: 0x2f5fa8, scarf: 0xf4f0e6, kneelRobe: true, anim: 'Idle_Neutral', skin: 0xe8b890, palette: { Black: 0x2f5fa8, DarkBrown: 0x3a6ab8, LightBrown: 0xf0ece0, Metal: 0x2f5fa8, White: 0xf0ece0, Gold: 0xd0a040, Brown: 0x5a3a20 } });
+    const maria = cast.person({ type: 'W_Medieval', female: true, pose: ['kneel2', 'pray'], robe: 0xc8546a, scarf: 0xf4f0e6, cloak: true, cloakColor: 0x2a58a8, outfitTint: 0xf0d8d8, kneelRobe: true, anim: 'Idle_Neutral', skin: 0xe8b890, palette: { Black: 0x2f5fa8, DarkBrown: 0x3a6ab8, LightBrown: 0xf0ece0, Metal: 0x2f5fa8, White: 0xf0ece0, Gold: 0xd0a040, Brown: 0x5a3a20 } });
     maria.place(...L(-0.95, 0.85), Math.PI / 2 + 0.25, y);
     const mh = maria.headFrame();
     const halo1 = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.009, 6, 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, 1.45, 0.7) }));
@@ -334,12 +337,12 @@ export class World {
       d.walk(circlePath(cx, cz, r, 40), { speed: 1.4, offset: off, anim: 'Walk', animSpeed: 1.1 });
     }
     // pastor con una oveja a hombros camino del Portal
-    const carrier = cast.person({ female: false, pose: ['carryArms'], anim: 'Walk', robe: 0x7a6040 });
+    const carrier = cast.person({ female: false, anim: 'Walk_Carry_Loop', robe: 0x7a6040, outfit: 'ranger', hood: true });
     const lambG = this.lib.props.geometry('f_Sheep', { height: 0.5 });
     const lamb = new THREE.Mesh(lambG, SHARED.standard); lamb.castShadow = true;
     const chest = carrier.bonePos('Chest');
-    carrier.attach('Chest', lamb, V(0, chest.y + 0.26, chest.z - 0.04), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2));
-    carrier.walk([...ROADS.portalToShepherds].reverse().slice(0, -3), { speed: 0.9, loop: false, offset: 0.2 });
+    carrier.attach('Chest', lamb, V(0, chest.y - 0.12, chest.z + 0.3), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2));
+    carrier.walk([...ROADS.portalToShepherds].reverse().slice(0, -3), { speed: 0.9, loop: false, offset: 0.2, anim: 'Walk_Carry_Loop' });
     // otro pastor con zurrón y cayado
     const w2 = cast.person({ female: false, staff: true, pose: ['staffR'], anim: 'Walk' });
     w2.walk([...ROADS.portalToShepherds].reverse().slice(0, -3).map(([x, z]) => [x + 1.2, z - 0.6]), { speed: 0.9, loop: false, offset: 0.62 });
@@ -431,9 +434,7 @@ export class World {
       const z = Lz - 3 + i * 2.3, x = riverX(z) + 6.1;
       const w = cast.person({ female: true, pose: ['wash'], anim: 'Idle_Neutral', robe: rng.pick([0x9a4a3a, 0x5b6a8a, 0xa0784a, 0x7a5a7a]) });
       w.place(x, z, -Math.PI / 2 + rng.range(-0.2, 0.2));
-      // movimiento de frotar
-      const ua = w.bones.UpperArmL, ub = w.bones.UpperArmR; const qa = ua.quaternion.clone(), qb = ub.quaternion.clone(); let tt = rng.next() * 5;
-      w.extra.push((dt) => { tt += dt; const k = Math.sin(tt * 3.5) * 0.25; for (const o of w.overrides) { if (o[0] === ua) o[1].copy(qa.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), k))); if (o[0] === ub) o[1].copy(qb.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), -k))); } });
+      // frota la ropa con la animación de rodillas
       this.prop('v_Bags', x + 0.9, z + 0.6, { h: 0.4 });
     }
     // tendederos con ropa
@@ -490,13 +491,15 @@ export class World {
     this.prop('v_Cart', F0.x + 6, F0.z + 3, { h: 2.0, ry: 1.0 });
     for (let i = 0; i < 6; i++) this.prop('v_Hay', F0.x + 7 + rng.range(-2, 2), F0.z + 6 + rng.range(-2, 2), { h: 1.1 });
     const cow = cast.animal('Cow', { height: 1.5, anim: 'Eating' }); cow.place(F0.x - 4, F0.z - 14, 0.4);
-    const woman = cast.person({ female: true, anim: 'Interact' }); woman.place(F0.x - 6, F0.z + 10, 0.3);
+    const woman = cast.person({ female: true, anim: 'Farm_Harvest' }); woman.place(F0.x - 6, F0.z + 10, 0.3);
+    const w2 = cast.person({ female: false, anim: 'Farm_Watering' }); w2.place(F0.x - 2, F0.z + 12.5, -0.5);
     // olivar
     for (let i = 0; i < 40; i++) {
       const x = F0.x - 40 + (i % 8) * 8 + rng.range(-1.5, 1.5), z = F0.z - 52 + Math.floor(i / 8) * 8 + rng.range(-1.5, 1.5);
       this.prop(rng.pick(['n_CommonTree_1', 'n_CommonTree_2', 'n_CommonTree_5']), x, z, { h: rng.range(4, 5.5), ry: rng.range(0, 6), palette: { Green: 0x7d8f5a, DarkGreen: 0x5f7448, Leaves: 0x7d8f5a } });
     }
-    const pick = cast.person({ female: true, anim: 'Interact' }); pick.place(F0.x - 30, F0.z - 40, 1.2);
+    const pick = cast.person({ female: true, anim: 'Farm_Harvest' }); pick.place(F0.x - 30, F0.z - 40, 1.2);
+    const pick2 = cast.person({ female: false, anim: 'Farm_PlantSeed' }); pick2.place(F0.x - 22, F0.z - 36, -0.8);
   }
 
   // ---------------------------------------------------------------- Herodes
@@ -627,6 +630,7 @@ export class World {
     const houses = this.B.build(this.buildingMat, { name: 'buildings' }); if (houses) scene.add(houses);
     const wins = this.W.build(this.windowMat, { name: 'windows', castShadow: false }); if (wins) scene.add(wins);
     const glows = this.G.build(this.glowMat, { name: 'glows', castShadow: false }); if (glows) scene.add(glows);
+    const rocks = this.RB.build(this.rockMat, { name: 'rocks' }); if (rocks) scene.add(rocks);
     this.instanced = this.inst.build();
     for (const f of this.flocks) f.build();
     this.cloudSys = makeClouds(scene);
@@ -668,7 +672,8 @@ class Flock {
   }
   build() {
     const geo = this.world.lib.props.geometry('f_Sheep', { height: 0.95 });
-    this.mesh = new THREE.InstancedMesh(geo, SHARED.standard, this.sheep.length);
+    Flock.mat ||= addDetail(SHARED.standard.clone(), { mode: 'fur', objectSpace: true, scale: 1.2, bump: 1.2 });
+    this.mesh = new THREE.InstancedMesh(geo, Flock.mat, this.sheep.length);
     this.mesh.castShadow = true; this.mesh.receiveShadow = true;
     this.sheep.forEach((s, i) => this.mesh.setColorAt(i, s.black ? new THREE.Color(0.35, 0.3, 0.28) : new THREE.Color(1, 1, 1)));
     this.world.scene.add(this.mesh);

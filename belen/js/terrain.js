@@ -1,6 +1,7 @@
 // Terreno de Belén: colinas, la ciudad en lo alto, el río, el desierto y las montañas nevadas.
 import * as THREE from 'three';
 import { fbm, ridged, noise2, smoothstep, lerp, clamp, distToPolyline, smoothPath } from './util.js';
+import { addDetail } from './materials.js';
 
 export const SIZE = 760;            // metros de lado
 export const SEG = 380;             // celdas por lado (2 m)
@@ -202,7 +203,7 @@ export function buildTerrain() {
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0, flatShading: true });
+  const mat = addDetail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0, flatShading: false }), { mode: 'terrain', bump: 1.4 });
   const mesh = new THREE.Mesh(g, mat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
