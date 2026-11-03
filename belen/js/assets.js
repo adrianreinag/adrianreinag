@@ -7,7 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const MODELS_URL = new URL('../models/', import.meta.url).href;
 
-const CHARACTER_FILES = ['M_Farmer', 'M_King', 'M_Adventurer', 'M_Casual', 'M_Casual2', 'M_Worker', 'W_Medieval', 'W_Casual', 'W_Formal', 'W_Worker', 'Knight'];
+const CHARACTER_FILES = ['M_Farmer', 'M_King', 'M_Adventurer', 'M_Casual', 'M_Casual2', 'M_Worker', 'W_Medieval', 'W_Casual', 'W_Formal', 'W_Worker'];
 const ANIMAL_FILES = ['Donkey', 'Cow', 'Bull', 'Horse', 'Horse_White', 'Alpaca', 'Husky', 'ShibaInu', 'Deer', 'Stag', 'Fox', 'Wolf'];
 
 // Material compartido: color por vértice, sombreado plano estilo "low poly"
@@ -129,9 +129,13 @@ export class PropLibrary {
 export class Instancer {
   constructor(scene, lib) { this.scene = scene; this.lib = lib; this.groups = new Map(); }
   add(name, { x = 0, y = 0, z = 0, ry = 0, rx = 0, rz = 0, s = 1, sy = null, palette = null, height = null, scale = null, color = null, castShadow = true, material = null }) {
-    const g = this.lib.geometry(name, { palette, height, scale });
-    let grp = this.groups.get(g);
-    if (!grp) { grp = { geometry: g, list: [], castShadow, material }; this.groups.set(g, grp); }
+    // una única geometría por modelo y paleta, normalizada a 1 m de alto; la escala va en la instancia
+    const g = this.lib.geometry(name, { palette, height: 1 });
+    const k = height ?? (this.lib.size(name).y * (scale ?? 1));
+    s *= k; if (sy !== null) sy *= k;
+    const key = g.uuid + (castShadow ? 's' : 'n');
+    let grp = this.groups.get(key);
+    if (!grp) { grp = { geometry: g, list: [], castShadow, material }; this.groups.set(key, grp); }
     grp.list.push({ x, y, z, ry, rx, rz, s, sy: sy ?? s, color });
   }
   build() {
@@ -300,7 +304,10 @@ export async function loadAll(onProgress) {
   const loader = new GLTFLoader(manager); loader.setMeshoptDecoder(MeshoptDecoder);
   const files = ['props', 'anims_human', ...CHARACTER_FILES, ...ANIMAL_FILES];
   let done = 0;
-  const load = (f) => loader.loadAsync(MODELS_URL + f + '.glb').then((g) => { done++; onProgress?.(done / files.length, f); return g; });
+  // si el navegador bloquea WebAssembly (decodificador meshopt), se usan los modelos sin comprimir
+  const wasmOk = await MeshoptDecoder.ready.then(() => true, () => false);
+  const base = wasmOk ? MODELS_URL : MODELS_URL + 'plain/';
+  const load = (f) => loader.loadAsync(base + f + '.glb').then((g) => { done++; onProgress?.(done / files.length, f); return g; });
   const results = await Promise.all(files.map(load));
   const byName = Object.fromEntries(files.map((f, i) => [f, results[i]]));
   const humanClips = byName.anims_human.animations.map(retargetHumanClip);
@@ -311,8 +318,7 @@ export async function loadAll(onProgress) {
   const HATS = { M_Farmer: ['Beige', 'Red'], M_Worker: ['Worker_Yellow'], W_Worker: ['Worker_Yellow'] };
   for (const f of CHARACTER_FILES) {
     const g = byName[f];
-    const clips = f === 'Knight' ? g.animations : humanClips;
-    lib.chars[f] = new AnimatedTemplate(g, clips, { human: f !== 'Knight', hideHeadMats: HATS[f] || [] });
+    lib.chars[f] = new AnimatedTemplate(g, humanClips, { human: true, hideHeadMats: HATS[f] || [] });
   }
   for (const f of ANIMAL_FILES) {
     const t = new AnimatedTemplate(byName[f], byName[f].animations);

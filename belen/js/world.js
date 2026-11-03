@@ -1,18 +1,19 @@
 // Composición del Belén: la ciudad, el Portal y todas las escenas del nacimiento.
 import * as THREE from 'three';
 import { RNG, PathWalker, circlePath, smoothPath, clamp, lerp, distToPolyline } from './util.js';
-import { LOC, ROADS, riverX, waterLevel, heightAt, buildTerrain, buildRiver, buildPond, roadDistance } from './terrain.js';
+import { LOC, ROADS, riverX, waterLevel, heightAt, buildTerrain, buildRiver, buildPond, roadDistance, shadeGround } from './terrain.js';
 import { Instancer, SHARED } from './assets.js';
 import { Cast, babyMesh, angelFigure, staffMesh, jarMesh, lanternMesh, ACTORS } from './actors.js';
 import { GeoBuilder, hebrewHouse, cityWalls, buildPortal, stoneBridge, waterMill, bakeryOven, forge, rockBlob, frame, footprint, WALL_COLORS } from './builder.js';
-import { makeFire, makeSmoke, makeGlowSprite, makeDoves, makeDucks, makeClouds, makeBanner, makeFireflies, UPDATERS, NIGHT_LIGHTS } from './effects.js';
+import { makeFire, makeSmoke, makeGlowSprite, makeDoves, makeDucks, makeClouds, makeBanner, makeFireflies, makeEmbers, UPDATERS, NIGHT_LIGHTS } from './effects.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const angDist = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 
 export class World {
-  constructor(scene, lib) {
-    this.scene = scene; this.lib = lib;
+  constructor(scene, lib, { lite = false } = {}) {
+    this.scene = scene; this.lib = lib; this.lite = lite;
+    this.Q = lite ? 0.5 : 1; // densidad de vegetación y gente
     this.rng = new RNG(1225);
     this.inst = new Instancer(scene, lib.props);
     this.cast = new Cast(lib, scene);
@@ -144,7 +145,7 @@ export class World {
   buildTownPeople(pc) {
     const { cast, rng } = this; const T = LOC.town;
     // paseantes por las calles anulares
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < Math.round(30 * (this.lite ? 0.6 : 1)); i++) {
       const r = rng.pick([23.25, 30.75, 38.2]);
       let pts = circlePath(T.x, T.z, r + rng.range(-0.5, 0.5), 72);
       if (rng.chance(0.5)) pts = pts.reverse();
@@ -202,6 +203,7 @@ export class World {
     const fx = -10, fz = -19, fy = heightAt(fx, fz);
     forge(B, G, { x: fx, z: fz, y: fy, ry: 0.5 });
     makeFire(scene, V(fx, fy + 1.05, fz), { size: 0.5, intensity: 10, distance: 12 });
+    makeEmbers(scene, V(fx, fy + 1.2, fz), { count: 20, height: 2.5, spread: 0.6 });
     const smith = cast.person({ type: 'M_Worker', female: false, robe: 0x5a4a3a, scarf: null, pose: ['hammer'], anim: 'Idle', noRobe: false, robeLen: 0.6 });
     const sp = V(1.6, 0, 1.1).applyMatrix4(frame(fx, fy, fz, 0.5)); smith.place(sp.x, sp.z, 0.5 - Math.PI / 2 + 0.6);
     const arm = smith.bones.LowerArmR; const q0 = arm.quaternion.clone();
@@ -269,15 +271,15 @@ export class World {
     NIGHT_LIGHTS.push({ light: pl2, base: 6 });
     // ángel sobre el portal con el estandarte
     const angel = angelFigure(cast, { height: 1.9 });
-    angel.place(P.x + 0.4, P.z + 2.2, 0, y + 5.3);
+    angel.place(P.x + 0.4, P.z - 0.6, 0, y + 6.4);
     angel.pose('armsOpen');
     const banner = makeBanner('GLORIA IN EXCELSIS DEO', { width: 5.4, height: 0.8 });
-    banner.position.set(P.x + 0.4, y + 8.3, P.z + 2.6); scene.add(banner);
-    const ay = y + 5.3; let at = 0;
-    angel.extra.push((dt) => { at += dt; angel.group.position.y = ay + Math.sin(at * 1.2) * 0.18; banner.position.y = y + 8.35 + Math.sin(at * 1.2 + 0.6) * 0.12; });
-    makeGlowSprite(scene, V(P.x + 0.4, y + 6.4, P.z + 2.0), { size: 7, color: 0xfff0c0, opacity: 0.35 });
+    banner.position.set(P.x + 0.4, y + 9.3, P.z - 0.2); scene.add(banner);
+    const ay = y + 6.4; let at = 0;
+    angel.extra.push((dt) => { at += dt; angel.group.position.y = ay + Math.sin(at * 1.2) * 0.18; banner.position.y = y + 9.35 + Math.sin(at * 1.2 + 0.6) * 0.12; });
+    makeGlowSprite(scene, V(P.x + 0.4, y + 7.5, P.z - 0.8), { size: 7, color: 0xfff0c0, opacity: 0.35 });
     // pastores adorando
-    const sh1 = cast.person({ female: false, pose: ['kneel', 'pray'], kneelRobe: true, anim: 'Idle_Neutral' }); sh1.place(...L(3.3, 3.9), -2.5, y);
+    const sh1 = cast.person({ female: false, pose: ['kneel2', 'pray'], kneelRobe: true, anim: 'Idle_Neutral', robe: 0x8a6a40 }); sh1.place(...L(3.3, 3.9), -2.5, y);
     const lamb = this.lib.props.geometry('f_Sheep', { height: 0.55 });
     const lm = new THREE.Mesh(lamb, SHARED.standard); lm.castShadow = true; const lp = L(2.6, 3.4); lm.position.set(lp[0], heightAt(...lp), lp[1]); lm.rotation.y = 2.0; scene.add(lm);
     const sh2 = cast.person({ female: false, staff: true, pose: ['staffR'], anim: 'Idle' }); sh2.place(...L(4.4, 2.0), -1.9, y);
@@ -296,6 +298,7 @@ export class World {
     this.prop('v_Bonfire', S.x, S.z, { h: 0.28 });
     makeFire(scene, V(S.x, y + 0.05, S.z), { size: 1.1, intensity: 30, distance: 30 });
     makeSmoke(scene, V(S.x, y + 1.2, S.z), { count: 7, size: 0.8 });
+    makeEmbers(scene, V(S.x, y + 0.4, S.z), { count: 40, height: 5 });
     for (let i = 0; i < 4; i++) {
       const a = i * Math.PI * 0.5 + 0.4; const r = 2.1;
       const x = S.x + Math.cos(a) * r, z = S.z + Math.sin(a) * r;
@@ -577,10 +580,10 @@ export class World {
     // palmeras alrededor del Portal y junto a la ciudad
     for (let i = 0; i < 10; i++) { const a = rng.range(-0.6, 3.6), r = rng.range(19, 28); const x = P.x + Math.cos(a) * r, z = P.z - Math.sin(a) * r * 0.8; if (roadDistance(x, z) < 4) continue; this.prop(rng.pick(['n_PalmTree_1', 'n_PalmTree_3']), x, z, { h: rng.range(8, 11), ry: rng.range(0, 6) }); }
     // arbustos, rocas, hierba y flores
-    scatter(320, 270, (x, z) => { if (blocked(x, z)) return false; this.prop(rng.pick(['n_Bush_1', 'n_Bush_2', 'n_BushBerries_1']), x, z, { h: rng.range(0.8, 1.6), ry: rng.range(0, 6) }); return true; });
+    scatter(Math.round(320 * this.Q), 270, (x, z) => { if (blocked(x, z)) return false; this.prop(rng.pick(['n_Bush_1', 'n_Bush_2', 'n_BushBerries_1']), x, z, { h: rng.range(0.8, 1.6), ry: rng.range(0, 6) }); return true; });
     scatter(260, 290, (x, z) => { if (blocked(x, z)) return false; const k = rng.range(0.6, 2.8); this.prop(rng.pick(['n_Rock_1', 'n_Rock_2', 'n_Rock_3', 'n_Rock_4', 'n_Rock_5', 'n_Rock_6', 'n_Rock_7']), x, z, { h: k, ry: rng.range(0, 6), yOff: -k * 0.15, palette: { Rock: 0x9a8c78 } }); return true; });
-    scatter(2600, 250, (x, z) => { if (blocked(x, z) || desertW(x, z) > 0.2) return false; this.prop(rng.pick(['n_Grass', 'n_Grass_2', 'n_Grass_Short', 'n_Grass_Short']), x, z, { h: rng.range(0.35, 0.8), ry: rng.range(0, 6), cast: false }); return true; });
-    scatter(380, 240, (x, z) => { if (blocked(x, z) || desertW(x, z) > 0.2) return false; this.prop(rng.pick(['n_Flowers', 'n_Plant_1', 'n_Plant_3', 'n_Plant_5']), x, z, { h: rng.range(0.4, 1.0), ry: rng.range(0, 6), cast: false }); return true; });
+    scatter(Math.round(2600 * this.Q), 250, (x, z) => { if (blocked(x, z) || desertW(x, z) > 0.2) return false; this.prop(rng.pick(['n_Grass', 'n_Grass_2', 'n_Grass_Short', 'n_Grass_Short']), x, z, { h: rng.range(0.35, 0.8), ry: rng.range(0, 6), cast: false }); return true; });
+    scatter(Math.round(380 * this.Q), 240, (x, z) => { if (blocked(x, z) || desertW(x, z) > 0.2) return false; this.prop(rng.pick(['n_Flowers', 'n_Plant_1', 'n_Plant_3', 'n_Plant_5']), x, z, { h: rng.range(0.4, 1.0), ry: rng.range(0, 6), cast: false }); return true; });
     // sauces junto al río
     for (let z = -200; z < 200; z += rng.range(9, 18)) for (const side of [-1, 1]) {
       if (rng.chance(0.35)) continue;
@@ -611,6 +614,16 @@ export class World {
 
   finish() {
     const { scene } = this;
+    // sombreado de contacto en el suelo: casas, muralla y Portal
+    const shapes = (this.houses || []).map((h) => {
+      const c = Math.cos(h.ry), sn = Math.sin(h.ry), hw = h.w / 2, hd = h.d / 2;
+      return { x: h.x, z: h.z, radius: Math.max(hw, hd) + 0.5, reach: 2.2, strength: 0.42, dist: (x, z) => { const dx = x - h.x, dz = z - h.z; const lx = dx * c - dz * sn, lz = dx * sn + dz * c; const qx = Math.abs(lx) - hw, qz = Math.abs(lz) - hd; return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0); } };
+    });
+    const T = LOC.town;
+    shapes.push({ x: T.x, z: T.z, radius: T.r + 3, reach: 3.2, strength: 0.38, dist: (x, z) => Math.abs(Math.hypot(x - T.x, z - T.z) - T.r) - 1.2 });
+    const P = LOC.portal;
+    shapes.push({ x: P.x, z: P.z - 3, radius: 12, reach: 6, strength: 0.3, dist: (x, z) => Math.hypot((x - P.x) * 0.8, z - (P.z - 5)) - 6 });
+    shadeGround(this.terrain, shapes);
     const houses = this.B.build(this.buildingMat, { name: 'buildings' }); if (houses) scene.add(houses);
     const wins = this.W.build(this.windowMat, { name: 'windows', castShadow: false }); if (wins) scene.add(wins);
     const glows = this.G.build(this.glowMat, { name: 'glows', castShadow: false }); if (glows) scene.add(glows);

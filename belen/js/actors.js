@@ -485,6 +485,10 @@ export function angelFigure(cast, { height = 1.9, banner = null } = {}) {
   const head = a.bonePos('Head');
   const halo = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.018, 6, 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.5, 2.8, 1.3) }));
   a.attach('Head', halo, head.clone().add(V(0, 0.33, -0.04)), new THREE.Quaternion().setFromAxisAngle(AX, Math.PI / 2 - 0.25));
+  // el ángel brilla con luz propia
+  const glowCloth = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, flatShading: true, side: THREE.DoubleSide, emissive: 0xfff2dc, emissiveIntensity: 0.45 });
+  a.group.traverse((o) => { if (o.isMesh && o.material === clothMat) o.material = glowCloth; });
+  a.body.material = SHARED.skinned.clone(); a.body.material.emissive = new THREE.Color(0xfff0dc); a.body.material.emissiveIntensity = 0.3;
   a.isAngel = true;
   return a;
 }

@@ -269,3 +269,22 @@ export function buildPond(x, z, r, y) {
   const mat = new THREE.MeshStandardMaterial({ color: 0x3f8fa0, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.92 });
   const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.receiveShadow = true; return m;
 }
+
+// Oscurece el suelo junto a muros y edificios (oclusión ambiental falsa, barata)
+export function shadeGround(terrain, shapes) {
+  const col = terrain.geometry.attributes.color; const N = SEG + 1;
+  for (const sh of shapes) {
+    const R = sh.radius; const reach = sh.reach ?? 1.8;
+    const i0 = Math.max(0, Math.floor((sh.x - R - reach + SIZE / 2) / CELL)), i1 = Math.min(SEG, Math.ceil((sh.x + R + reach + SIZE / 2) / CELL));
+    const j0 = Math.max(0, Math.floor((sh.z - R - reach + SIZE / 2) / CELL)), j1 = Math.min(SEG, Math.ceil((sh.z + R + reach + SIZE / 2) / CELL));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const x = -SIZE / 2 + i * CELL, z = -SIZE / 2 + j * CELL;
+      const d = sh.dist(x, z);
+      if (d > reach) continue;
+      const k = (sh.strength ?? 0.4) * (1 - Math.max(0, d) / reach);
+      const idx = j * N + i; const f = 1 - k;
+      col.setXYZ(idx, col.getX(idx) * f, col.getY(idx) * f, col.getZ(idx) * f);
+    }
+  }
+  col.needsUpdate = true;
+}

@@ -78,7 +78,7 @@ const state = { night: 0.8, auto: false, tourIndex: -1, fly: null, labels: true 
 async function boot() {
   progress(0.02, 'Descargando las figuras 3D');
   const lib = await loadAll((p, f) => progress(0.05 + p * 0.45, 'Descargando las figuras 3D'));
-  world = new World(scene, lib);
+  world = new World(scene, lib, { lite: isMobile });
   const steps = world.steps();
   for (let i = 0; i < steps.length; i++) {
     progress(0.5 + (i / steps.length) * 0.48, steps[i][0]);
@@ -96,8 +96,10 @@ async function boot() {
   loaderEl.classList.add('done');
   setTimeout(() => loaderEl.remove(), 1200);
   buildTourUI();
+  buildMarkers();
   const start = params.get('view');
   if (start !== null) goTour(+start, true);
+  else if (!STILL) intro();
   window.READY = true;
 }
 
@@ -112,6 +114,40 @@ function setTime(t) {
   $('#timeLabel').textContent = t < 0.3 ? 'Día' : t < 0.58 ? 'Atardecer' : t < 0.82 ? 'Anochecer' : 'Noche';
 }
 
+// ------------------------------------------------------------ intro y marcadores
+function intro() {
+  const P = LOC.portal;
+  camera.position.set(P.x + 40, LOC.portal.h + 150, P.z + 260);
+  controls.target.set(P.x + 6, LOC.portal.h + 60, P.z - 18);
+  controls.update();
+  setTimeout(() => goTour(0, false, 7.5), 900);
+}
+const markers = [];
+function buildMarkers() {
+  const layer = $('#markers');
+  TOURS.forEach((t, i) => {
+    if (!t.marker) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'marker'; b.innerHTML = `<span>${t.short}</span>`;
+    b.addEventListener('click', () => { state.auto = false; $('#auto').setAttribute('aria-pressed', 'false'); goTour(i); });
+    layer.appendChild(b); markers.push({ el: b, t, i });
+  });
+}
+const _v = new THREE.Vector3();
+function updateMarkers() {
+  const camDist = camera.position.distanceTo(controls.target);
+  const show = state.labels && camDist > 45 && !state.fly;
+  for (const m of markers) {
+    if (!show || m.i === state.tourIndex && camDist < 90) { m.el.style.opacity = 0; m.el.style.pointerEvents = 'none'; continue; }
+    _v.copy(m.t.marker(world));
+    const d = _v.distanceTo(camera.position);
+    _v.project(camera);
+    const vis = _v.z < 1 && Math.abs(_v.x) < 1.05 && Math.abs(_v.y) < 1.05 && d < 520;
+    m.el.style.opacity = vis ? String(Math.min(1, (520 - d) / 120)) : 0;
+    m.el.style.pointerEvents = vis ? 'auto' : 'none';
+    if (vis) m.el.style.transform = `translate(${(_v.x * 0.5 + 0.5) * innerWidth}px, ${(-_v.y * 0.5 + 0.5) * innerHeight}px) translate(-50%, -100%)`;
+  }
+}
+
 // ------------------------------------------------------------ recorrido
 function buildTourUI() {
   const nav = $('#tour');
@@ -122,14 +158,17 @@ function buildTourUI() {
     nav.appendChild(b);
   });
 }
-function goTour(i, instant = false) {
+function goTour(i, instant = false, dur = null) {
   const t = TOURS[(i + TOURS.length) % TOURS.length];
   state.tourIndex = TOURS.indexOf(t);
   document.querySelectorAll('#tour button').forEach((b, k) => b.classList.toggle('on', k === state.tourIndex));
   const target = t.target(world), pos = t.pos(world);
+  // en pantallas verticales (móvil) la cámara se aleja para que quepa la escena
+  const aspect = innerWidth / innerHeight;
+  if (aspect < 1.2) pos.sub(target).multiplyScalar(Math.pow(1.2 / aspect, 0.75)).add(target);
   $('#infoTitle').textContent = t.title; $('#infoText').textContent = t.text; $('#info').hidden = false;
   if (instant) { camera.position.copy(pos); controls.target.copy(target); controls.update(); return; }
-  state.fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, k: 0, dur: Math.min(6, 2.2 + camera.position.distanceTo(pos) / 80) };
+  state.fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, k: 0, dur: dur ?? Math.min(6, 2.2 + camera.position.distanceTo(pos) / 80) };
 }
 
 // ------------------------------------------------------------ bucle
@@ -178,6 +217,7 @@ function frame() {
   world.update(dt, elapsed, camera);
   grade.uniforms.uTime.value = elapsed % 10;
   composer.render();
+  updateMarkers();
   // calidad adaptativa
   if (STILL) return;
   fpsAcc += dt; fpsN++;
@@ -208,6 +248,7 @@ addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'ArrowRight') goTour(state.tourIndex + 1);
   if (e.key === 'ArrowLeft') goTour(state.tourIndex - 1);
+  if (e.key === 'l') state.labels = !state.labels;
   if (e.key === 'n') { const v = state.night > 0.5 ? 0.15 : 0.92; setTime(v); $('#time').value = v * 100; }
 });
 controls.addEventListener('start', () => { state.fly = null; if (state.auto) { state.auto = false; $('#auto').setAttribute('aria-pressed', 'false'); } });

@@ -179,3 +179,20 @@ export function makeFireflies(scene, { count = 260 } = {}) {
   });
   return pts;
 }
+
+// Chispas que suben de una hoguera
+export function makeEmbers(scene, pos, { count = 36, height = 4, spread = 0.5 } = {}) {
+  const arr = new Float32Array(count * 3); const st = [];
+  for (let i = 0; i < count; i++) st.push({ t: Math.random(), sp: 0.25 + Math.random() * 0.4, ox: (Math.random() - 0.5) * spread, oz: (Math.random() - 0.5) * spread, ph: Math.random() * 6 });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  const mat = new THREE.PointsMaterial({ map: GLOW_TEX(), color: new THREE.Color(3, 1.3, 0.35), size: 0.22, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  const pts = new THREE.Points(g, mat); scene.add(pts);
+  UPDATERS.push((dt, t) => {
+    for (let i = 0; i < count; i++) {
+      const e = st[i]; e.t += dt * e.sp; if (e.t > 1) { e.t -= 1; e.ox = (Math.random() - 0.5) * spread; e.oz = (Math.random() - 0.5) * spread; }
+      arr[i * 3] = pos.x + e.ox + Math.sin(t * 2 + e.ph) * 0.3 * e.t; arr[i * 3 + 1] = pos.y + e.t * height; arr[i * 3 + 2] = pos.z + e.oz + Math.cos(t * 1.7 + e.ph) * 0.3 * e.t;
+    }
+    g.attributes.position.needsUpdate = true;
+  });
+  return pts;
+}
