@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Belén Monumental</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Un belén navideño en 3D: la ciudad entera de Belén con el Portal, los pastores, los Reyes Magos, el mercado, el río con su molino y el palacio de Herodes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="c" aria-label="Escena 3D del belén"></canvas>
+
+<div id="loader" role="status" aria-live="polite">
+  <div class="loader-inner">
+    <svg class="star" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2 L56 44 L98 50 L56 56 L50 98 L44 56 L2 50 L44 44 Z"/><path class="small" d="M50 22 L53 47 L78 50 L53 53 L50 78 L47 53 L22 50 L47 47 Z" transform="rotate(45 50 50)"/></svg>
+    <h1>Belén Monumental</h1>
+    <p class="sub">La ciudad de Belén la noche del Nacimiento</p>
+    <div class="track"><div id="bar"></div></div>
+    <p id="step">Preparando el belén</p>
+  </div>
+</div>
+
+<header id="brand">
+  <h1>Belén Monumental</h1>
+  <p>Belén de Judá · año 1</p>
+</header>
+
+<div id="controls">
+  <label class="time" for="time">
+    <span class="lbl">Hora: <b id="timeLabel">Noche</b></span>
+    <input id="time" type="range" min="0" max="100" value="80" aria-label="Hora del día">
+  </label>
+  <button id="auto" type="button" aria-pressed="false" title="Recorrido automático">Recorrido</button>
+  <button id="music" type="button" aria-pressed="false" title="Noche de paz (caja de música)">Música</button>
+  <button id="help" type="button" title="Cómo moverse">?</button>
+</div>
+
+<div id="hint" hidden>
+  <p><b>Girar:</b> arrastra · <b>Acercar:</b> rueda o pellizco · <b>Desplazar:</b> clic derecho o dos dedos</p>
+  <p><b>Escenas:</b> botones de abajo o flechas ← → · <b>Día/noche:</b> tecla N</p>
+</div>
+
+<section id="info" hidden aria-live="polite">
+  <button id="closeInfo" type="button" aria-label="Cerrar">×</button>
+  <h2 id="infoTitle"></h2>
+  <p id="infoText"></p>
+</section>
+
+<nav id="tour" aria-label="Escenas del belén"></nav>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
