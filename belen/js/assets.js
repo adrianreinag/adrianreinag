@@ -327,7 +327,11 @@ export async function loadAll(onProgress) {
     ? (f) => fetch(base + f + '.glb.json').then((r) => { if (!r.ok) throw new Error(`no se encontró ${f} (${r.status})`); return r.json(); }).then((j) => loader.parseAsync(base64ToBuffer(j.glb), base))
     : (f) => loader.loadAsync(base + f + '.glb');
   const load = (f) => fetchModel(f).then((g) => { done++; onProgress?.(done / files.length, f); return g; });
-  const results = await Promise.all(files.map(load));
+  // En modo empaquetado las texturas se leen como <img> (blob:), no con fetch, por las reglas de seguridad del visor
+  const cib = window.createImageBitmap;
+  if (PACKED) window.createImageBitmap = undefined;
+  let results;
+  try { results = await Promise.all(files.map(load)); } finally { if (PACKED) window.createImageBitmap = cib; }
   const byName = Object.fromEntries(files.map((f, i) => [f, results[i]]));
   const humanClips = [...byName.anims_ual1.animations, ...byName.anims_ual2.animations];
   const lib = {
