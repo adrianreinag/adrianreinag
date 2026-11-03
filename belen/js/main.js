@@ -259,5 +259,5 @@ window.__belen = {
   step(n = 1) { for (let i = 0; i < n; i++) frame(); return renderer.info.render; },
   fly(i) { goTour(i, true); },
 };
-boot().catch((err) => { console.error(err); stepEl.textContent = 'No se pudo cargar el belén: ' + err.message + '. Recarga la página para intentarlo de nuevo.'; });
+boot().catch((err) => { console.error(err); const msg = String(err && err.message || err).slice(0, 140); stepEl.textContent = 'No se pudo cargar el belén (' + msg + '). Recarga la página para intentarlo de nuevo.'; });
 frame();

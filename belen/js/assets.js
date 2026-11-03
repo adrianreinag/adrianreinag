@@ -5,7 +5,16 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export const MODELS_URL = new URL('../models/', import.meta.url).href;
+// La ruta de los modelos puede fijarse desde la página (window.BELEN_MODELS); si no, es ../models/ respecto a este módulo
+export const MODELS_URL = (typeof window !== 'undefined' && window.BELEN_MODELS) || new URL('../models/', import.meta.url).href;
+// Modo empaquetado (window.BELEN_PACKED): cada modelo es un .glb.json con el GLB en base64.
+// Sirve para alojamientos que no publican ficheros .glb ni permiten URLs data:.
+const PACKED = typeof window !== 'undefined' && !!window.BELEN_PACKED;
+function base64ToBuffer(b64) {
+  const bin = atob(b64); const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+}
 
 const CHARACTER_FILES = ['M_Farmer', 'M_King', 'M_Adventurer', 'M_Casual', 'M_Casual2', 'M_Worker', 'W_Medieval', 'W_Casual', 'W_Formal', 'W_Worker'];
 const ANIMAL_FILES = ['Donkey', 'Cow', 'Bull', 'Horse', 'Horse_White', 'Alpaca', 'Husky', 'ShibaInu', 'Deer', 'Stag', 'Fox', 'Wolf'];
@@ -307,7 +316,10 @@ export async function loadAll(onProgress) {
   // si el navegador bloquea WebAssembly (decodificador meshopt), se usan los modelos sin comprimir
   const wasmOk = await MeshoptDecoder.ready.then(() => true, () => false);
   const base = wasmOk ? MODELS_URL : MODELS_URL + 'plain/';
-  const load = (f) => loader.loadAsync(base + f + '.glb').then((g) => { done++; onProgress?.(done / files.length, f); return g; });
+  const fetchModel = PACKED
+    ? (f) => fetch(base + f + '.glb.json').then((r) => { if (!r.ok) throw new Error(`no se encontró ${f} (${r.status})`); return r.json(); }).then((j) => loader.parseAsync(base64ToBuffer(j.glb), base))
+    : (f) => loader.loadAsync(base + f + '.glb');
+  const load = (f) => fetchModel(f).then((g) => { done++; onProgress?.(done / files.length, f); return g; });
   const results = await Promise.all(files.map(load));
   const byName = Object.fromEntries(files.map((f, i) => [f, results[i]]));
   const humanClips = byName.anims_human.animations.map(retargetHumanClip);
