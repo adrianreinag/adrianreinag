@@ -2,27 +2,28 @@
 // con poses (de pie, andando, arrodillada, montada), ropa, tocados, barbas y objetos configurables.
 import { M, newObj, noise, smooth, lerp } from './engine.js';
 import { vfold, radial } from './figures.js';
+import { head as drawHead, arm as drawArm, hand as drawHand } from './anatomy.js';
 
 const curly = (s, a) => (x, y) => [(noise(x * s, y * s) - 0.5) * a, (noise(x * s + 9.3, y * s - 4.1) - 0.5) * a];
 
 // posiciones de codo y mano (brazo cercano) según la pose
 const ARMS = {
-  down: [[3.5, -64], [4.5, -53]],
-  staff: [[8, -66], [13, -62]],
-  staffF: [[10, -66], [17, -63]],
-  staffB: [[6, -65], [9, -61]],
-  forward: [[9, -67], [17, -67]],
-  offer: [[9, -63], [16, -64]],
-  up: [[8.5, -87], [11, -98]],
-  point: [[10, -83], [18, -92]],
-  pray: [[5.5, -66], [10.5, -73]],
-  chest: [[5, -66], [3.5, -71]],
-  hold: [[6, -62], [11, -61]],
-  torch: [[9, -72], [12, -81]],
-  hip: [[7, -63], [4, -55]],
-  flute: [[8, -70], [11, -77]],
-  reins: [[8, -66], [14, -63]],
-  open: [[9, -66], [15, -72]],
+  down: [[3.5, -63], [5.5, -53.5], 'relaxed'],
+  staff: [[8, -66], [12, -62], 'grip'],
+  staffF: [[10, -66], [16, -63], 'grip'],
+  staffB: [[6, -65], [8.5, -61], 'grip'],
+  forward: [[9, -67], [16, -67.5], 'offer'],
+  offer: [[9, -64], [15, -64.5], 'offer'],
+  up: [[9, -85], [11.5, -95], 'offer'],
+  point: [[10, -82], [16, -90], 'point'],
+  pray: [[6, -66], [9.5, -72], 'pray'],
+  chest: [[5.5, -66], [3.5, -71], 'relaxed'],
+  hold: [[6, -62], [10.5, -61], 'grip'],
+  torch: [[9, -72], [11.5, -80], 'grip'],
+  hip: [[7.5, -63], [4.5, -55], 'relaxed'],
+  flute: [[8, -70], [10.5, -77], 'grip'],
+  reins: [[8, -66], [13.5, -63], 'grip'],
+  open: [[9, -66], [14.5, -71], 'offer'],
 };
 
 // o: { skin, tunic, short, mantle:{m,style}, head:{type,m,m2}, beard:{len,m}, armN, armF, item:{type,...}, belt, pose, lean }
@@ -49,25 +50,25 @@ export function persona(p, o, t = {}) {
   const tunic = o.tunic ?? M.brown, sleeve = o.sleeve ?? tunic;
   const tunF = vfold(0.95, 0.32, o.seed || 0);
   const item = o.item || {};
-  const armN = w >= 0 && o.armN === 'staff' ? ARMS[w === 0 ? 'staffF' : w === 2 ? 'staffB' : 'staff'] : w >= 0 && !o.armN ? (w === 0 ? [[-0.5, -64], [-3.5, -54]] : w === 2 ? [[6.5, -64], [10, -55]] : ARMS.down) : ARMS[o.armN || 'down'];
+  const armN = w >= 0 && o.armN === 'staff' ? ARMS[w === 0 ? 'staffF' : w === 2 ? 'staffB' : 'staff'] : w >= 0 && !o.armN ? (w === 0 ? [[0.5, -64], [-1.5, -54.5], 'relaxed'] : w === 2 ? [[6, -64], [9.5, -55], 'relaxed'] : ARMS.down) : ARMS[o.armN || 'down'];
   const armF = ARMS[o.armF || (w >= 0 ? 'down' : 'down')];
 
   // ---- objeto largo detrás (vara, cayado, lanza) va con la mano cercana; se pinta luego
   // ---- brazo lejano (detrás del cuerpo)
   if (!o.noFarArm) {
-    const [e, h] = w >= 0 && !o.armF ? (w === 2 ? [[-1.5, -65], [-4.5, -55]] : w === 0 ? [[5, -65], [8, -56]] : ARMS.down) : armF;
-    tube([[-2, -77], [e[0] - 4, e[1]], [h[0] - 4, h[1]]], 3, 2.2, { m: sleeve, R: 2.4, v: -0.12 });
-    ell(h[0] - 4, h[1] - 0.4, 2.1, 2.4, { m: skin, R: 2, v: -0.1 });
+    const [e, h, g] = w >= 0 && !o.armF ? (w === 2 ? [[-0.5, -65], [-2.5, -55.5], 'relaxed'] : w === 0 ? [[5, -65], [8, -56], 'relaxed'] : ARMS.down) : armF;
+    drawArm(p, T(-2, -77), T(e[0] - 4, e[1]), T(h[0] - 4, h[1]), { m: sleeve, skin, short: o.shortSleeve, dark: true, hand: g, cuff: o.cuff });
   }
   // ---- capa real o manto trasero
   const mt = o.mantle;
   if (mt && (mt.style === 'back' || mt.style === 'cape')) {
     const cape = mt.style === 'cape';
     const pts = cape
-      ? [[-1, -82], [-7.5, -81], [-12, -77], [-15, -66], [-17.5, -48], [-19.5, -28], [-21.5, -10], [-23.5, 0.6], [-6, 0.6], [-9.5, -12], [-9.5, -30], [-8, -54], [-5, -70]]
-      : [[-1, -82], [-7, -81], [-11, -78], [-14, -71], [-15.8, -58], [-17, -42], [-18, -26], [-17.6, -12], [-12, -11], [-9.6, -22], [-9, -38], [-7.6, -54], [-5, -68], [-2, -76]];
-    const P = kneel ? pts.map(([x, y]) => y > -45 ? [x - (y + 45) * 0.15 - 4, Math.min(0.6, y)] : [x, y]) : pts;
-    p.poly(TP(P).map(([x, y]) => [x, kneel || ride ? Math.min(y, ride ? 2 : 0.6) : y]), { m: mt.m, smooth: 2, R: 5, fold: vfold(0.7, 0.4, 0.4), v: -0.04 });
+      ? [[2, -81.5], [-4, -81.6], [-9.5, -78.5], [-13, -70], [-15.4, -52], [-17.6, -32], [-19.8, -14], [-21.6, 0.6], [-4, 0.8], [-8.6, -14], [-9.4, -34], [-8.4, -54], [-4, -72]]
+      : [[1, -81.5], [-5, -81.4], [-10, -78], [-12.8, -70], [-14.2, -56], [-15.4, -40], [-16.4, -24], [-16, -12], [-10.6, -10.6], [-9.4, -22], [-9, -38], [-7.8, -54], [-5, -68], [-1, -76]];
+    const P = kneel ? pts.map(([x, y]) => { if (y <= -45) return [x, y]; const yy = -21 + (y + 45) * (21.6 / 45.6); return [x - (yy + 21) * 0.35, Math.min(0.6, yy)]; }) : pts;
+    p.poly(TP(P).map(([x, y]) => [x, kneel || ride ? Math.min(y, ride ? 2 : 0.6) : y]), { m: mt.m, smooth: 2, R: 5, v: -0.04 });
+    for (const [a, b] of cape ? [[[-9, -66], [-15, -4]], [[-6, -60], [-9, -6]]] : [[[-8, -66], [-13, -14]], [[-5, -62], [-7.4, -16]]]) { p.crease(TP([a, b]), -0.45); p.crease(TP([[a[0] + 1, a[1] + 2], [b[0] + 1, b[1]]]), 0.25); }
     if (cape && mt.trim) crease(P.slice(5, 9), 0.35, mt.trim);
   }
   // ---- piernas
@@ -86,18 +87,25 @@ export function persona(p, o, t = {}) {
   }
   // ---- túnica (tronco + falda)
   let skirt;
-  if (kneel) skirt = [[-11, -36], [-12.5, -30], [-14, -18], [-16, -6], [-15, 0.6], [20, 0.6], [19, -4], [16, -13], [13, -22], [11.5, -36]];
+  if (kneel) skirt = [[-10, -21], [-11.2, -14], [-13.6, -6], [-16, -1.2], [-15, 0.6], [13, 0.6], [13.8, -2], [12.8, -8], [11.2, -15], [10.2, -21]];
   else if (ride) skirt = [[-12, -9], [-6, -7], [7, -7.5], [9, -1], [15, -0.5], [15.5, -8], [13.5, -14]];
   else if (o.short) {
     const sw = w < 0 ? 0 : w === 0 ? 2 : w === 2 ? -2 : 0;
     skirt = [[-11.5, -40], [-12.5, -32], [-12 - sw * 0.5, -27], [0, -26], [12 + sw, -27], [12.5, -32], [11.5, -40]];
   } else {
     const hf = w < 0 ? 0 : w === 0 ? 5 : w === 2 ? 3 : -1, hb = w < 0 ? 0 : w === 0 ? 3.5 : w === 2 ? 2.5 : -1.5;
-    skirt = [[-11.5, -40], [-12.5, -24], [-13.5 - hb * 0.5, -10], [-14.2 - hb, -2], [-10 - hb * 0.5, 0.6], [0, 0.6], [11 + hf, 0.6], [13.8 + hf, -2], [13 + hf * 0.5, -10], [12, -24], [11, -40]];
+    skirt = [[-10.6, -32], [-11.8, -16], [-12.8 - hb, -3], [-11.4 - hb * 0.5, 0.4], [-2, 1], [6, 1], [12.6 + hf, 0.4], [13.6 + hf, -3], [12.4 + hf * 0.5, -16], [11, -32]];
   }
-  const torso = [[8, -79], [3, -81], [-3, -81], [-8, -78], [-10.5, -68], [-11, -56], [-11.5, -45]];
-  const torsoR = [[11, -45], [10.5, -56], [10.5, -68]];
-  if (!o.noBody) p.poly([...TP(torso), ...skirt.map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), ...TP(torsoR)], { m: tunic, smooth: 2, R: 6, fold: tunF, v: o.tunicV || 0 });
+  const torso = [[3.5, -81], [-3, -81], [-6.5, -79.5], [-9, -76], [-10, -70], [-9.6, -62], [-9.2, -54], [-9.8, -46]];
+  const torsoR = [[9.8, -46], [9.2, -54], [9.8, -62], [10.6, -70], [9.6, -76], [7, -79.5]];
+  if (!o.noBody) {
+    p.poly([...TP(torso), ...skirt.map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), ...TP(torsoR)], { m: tunic, smooth: 2, R: 6, v: (x, y) => (o.tunicV || 0) + (y > -4 && !kneel && !ride ? -0.25 : 0) });
+    // pliegues marcados: línea de sombra con su brillo al lado
+    if (!o.short && !ride) for (const [x0, x1, s0] of kneel ? [[2, 6, 1], [-4, -7, 1]] : [[3.5, 6.5 + (w === 0 ? 2 : 0), 1], [-3, -5.5, 1], [8, 11, 0.7]]) {
+      const yA = kneel ? -19 : -48, yB = -2;
+      p.crease(TP([[x0, yA], [x1, yB]]).map(([x, y]) => [x, y]), -0.5 * s0); p.crease(TP([[x0 + 1, yA + 2], [x1 + 1, yB]]), 0.3 * s0);
+    }
+  }
   if (o.hem) crease(o.short ? [[-12, -27.5], [12, -27.5]] : [], 0.3, o.hem);
   // pies bajo la túnica larga
   if (!o.short && !kneel && !ride && !o.noBody) {
@@ -107,10 +115,19 @@ export function persona(p, o, t = {}) {
   if (ride && o.rideLegs !== false) {
     p.ell(13, -0.6, 3, 1.4, { m: M.wood, R: 1 });
   }
+  if (mt && mt.style === 'wrap' && !o.noBody) {
+    const base = kneel
+      ? [[4, -81], [8, -78], [9.4, -71], [8.6, -62], [7, -52], [6.2, -46], [7.4, -18], [10.4, -10], [13, -3], [14, 0.6], [-17, 0.6], [-17.6, -5], [-15, -14], [-12.6, -50], [-11.2, -66], [-8.5, -78], [-3, -81.6]]
+      : [[4, -81], [7.5, -78.5], [8.6, -72], [7.6, -64], [6.2, -54], [5.2, -40], [4.6, -24], [4.4, -10], [4.8, 0.6], [-15.6, 0.6], [-16.6, -6], [-15, -28], [-12.8, -50], [-11.2, -66], [-8.5, -78], [-3, -81.6]];
+    p.poly(base.map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), { m: mt.m, smooth: 2, R: 5, v: -0.02 });
+    const edge = kneel ? [[8.6, -62], [7, -52], [6.2, -46], [7.4, -18], [10.4, -10], [13, -3], [14, 0]] : [[8.6, -72], [7.6, -64], [6.2, -54], [5.2, -40], [4.6, -24], [4.4, -10], [4.8, 0]];
+    if (mt.trim) p.crease(edge.map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), 0.45, mt.trim);
+    for (const [a, b] of kneel ? [[[-4, -60], [-12, -3]], [[1, -50], [-2, -3]]] : [[[-4, -64], [-10, -4]], [[1, -52], [-2, -4]], [[-9, -60], [-14, -6]]]) { p.crease([a, b].map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), -0.45); p.crease([[a[0] + 1, a[1] + 2], [b[0] + 1, b[1]]].map(([x, y]) => (y < -45 ? T(x, y) : [x, y])), 0.25); }
+  }
   // ---- chaleco de piel de oveja (pastores)
   if (mt && mt.style === 'fleece') p.poly(TP([[8.6, -78], [3, -80.6], [-4, -80], [-9.4, -76], [-11.2, -62], [-11.8, -48], [-2, -47], [8.6, -48], [10.6, -60]]), { m: M.wool, smooth: 1, R: 4, fold: curly(0.9, 1.1), v: -0.05 });
   // ---- cinturón
-  if (o.belt) { cap(-11, -51.5, 11, -51.5, 1.5, 1.5, { m: o.belt, R: 1.4 }); if (o.beltEnd !== false) cap(6, -51.5, 7.5, -42, 0.8, 0.7, { m: o.belt, R: 0.8 }); }
+  if (o.belt) { cap(-9.6, -52, 9.6, -51.6, 1.6, 1.6, { m: o.belt, R: 1.4 }); if (o.beltEnd !== false) { cap(6.4, -51.4, 7.6, -42.6, 0.8, 0.7, { m: o.belt, R: 0.8 }); cap(5.2, -51.4, 5.6, -44, 0.7, 0.6, { m: o.belt, R: 0.7, v: -0.1 }); } }
   // ---- manto en bandolera / capa de hombros
   if (mt && mt.style === 'sash') {
     p.poly(TP([[9, -79], [4, -82.2], [-2, -81.8], [-6, -76], [-10, -64], [-12.2, -50], [-8, -45.6], [-2, -54], [4, -64], [9.2, -71]]), { m: mt.m, smooth: 2, R: 4, fold: radial(6, -82, 10, 0.35, 3, 14) });
@@ -129,65 +146,16 @@ export function persona(p, o, t = {}) {
     if (item.type === 'crook') p.tube([[gx - 0.4, hy + top + 62], [gx - 0.2, hy + top + 56], [gx + 3.6, hy + top + 53], [gx + 6.4, hy + top + 56], [gx + 5.6, hy + top + 59]], 1.2, 1, { m: M.wood, R: 1.1 });
     if (item.type === 'spear') p.poly([[gx - 1.6, hy + top + 62], [gx + 0.2, hy + top + 53], [gx + 2, hy + top + 62], [gx + 0.2, hy + top + 64]], { m: M.metal, R: 1 });
   }
-  // ---- cabeza
-  const fo = newObj();
-  const sk = { m: skin, R: 4.5, obj: fo, v: o.faceV ?? 0.05 };
-  if (o.head?.type === 'hood' || o.head?.type === 'veil' || o.head?.type === 'cloth') {
-    // tocado que cae por la espalda (se pinta antes de la cara)
-    const back = o.head.type === 'cloth'
-      ? [[7.2, -91], [4, -95.5], [-2, -96], [-6.5, -92.5], [-8.5, -86], [-10, -78], [-7, -75], [-3, -79], [-2, -84], [-1, -88], [2, -90.5], [5.5, -90.8]]
-      : [[7.4, -92.4], [3, -96], [-3, -95.6], [-7.2, -91], [-9, -84], [-10.5, -77], [-12, -68], [-9, -66], [-4, -73], [-2.4, -80], [-1.8, -86], [0.4, -90], [4, -91.6]];
-    if (o.head.type === 'veil' || o.head.type === 'hood') ell(2.4, -87.4, 6, 7, { m: o.head.m2 ?? M.white, R: 4, v: 0.04 });
-    p.poly(TP(back), { m: o.head.m, smooth: 1, R: 4, fold: radial(-2, -90, 12, 0.3, 3, 12) });
-  }
-  if (o.head?.type === 'longhair') p.poly(TP([[6, -92], [1, -95.6], [-5, -94], [-8, -88], [-9, -78], [-7.6, -70], [-3, -72], [-2.4, -80], [-1, -87], [3, -90]]), { m: o.head.m, smooth: 1, R: 3, fold: vfold(2.5, 0.5) });
-  ell(2, -87, 5, 6.2, sk);
-  ell(7, -86.6, 1.35, 1.9, { ...sk, R: 1.5 });
-  if (o.young) ell(4.6, -82.6, 2.6, 1.6, { ...sk, R: 1.6 });
-  // cabello
+  // ---- cabeza (cráneo, mandíbula y nariz suaves; rasgos a mano)
   const ht = o.head?.type || 'hair';
-  if (ht === 'hair' || ht === 'crown' || ht === 'helmet0') {
-    p.poly(TP([[6.6, -90.4], [5, -93.6], [1, -94.8], [-3, -93.8], [-5.8, -90.6], [-6.8, -86], [-6.2, -82.4], [-3, -81.4], [-2.6, -85], [-2, -88], [1, -90.2], [4, -91]]), { m: o.hair ?? M.hair, smooth: 1, R: 3, fold: curly(0.8, 0.8), v: o.hairV || 0 });
-  }
-  if (ht !== 'cloth' && ht !== 'hood' && ht !== 'veil' && ht !== 'turban' && ht !== 'helmet') ell(-1.7, -86.4, 1.25, 1.9, { m: skin, R: 1.2 });
-  // barba
-  const bd = o.beard;
-  if (bd && bd.len) {
-    const long = bd.len >= 2;
-    p.poly(TP(long
-      ? [[6.9, -84.8], [5.6, -82.6], [6.4, -79], [5.4, -74], [3.4, -69.5], [0.6, -68.6], [-1.6, -72], [-2.8, -78], [-3.3, -84], [-1.2, -84.6], [0, -83], [2.6, -82.6], [4.6, -84]]
-      : [[6.9, -84.8], [5.6, -82.6], [6.3, -80.2], [4.8, -76.8], [2.6, -74.8], [-0.3, -76], [-2.7, -80], [-3.3, -84], [-1.2, -84.6], [0, -83], [2.6, -82.6], [4.6, -84]]), { m: bd.m, smooth: 1, R: 3, fold: curly(0.9, 0.9) });
-  }
-  // tocados delanteros
-  if (ht === 'cloth') { cap(6.8, -91.4, -5.6, -92.8, 1.05, 1.05, { m: o.head.m2 ?? M.ink, R: 1 }); }
-  if (ht === 'hood' || ht === 'veil') crease([[4, -91.6], [0.4, -90], [-1.8, -86], [-2.4, -80]], 0.2, o.head.trim);
-  if (ht === 'turban') {
-    ell(0.6, -92.6, 7.4, 5.2, { m: o.head.m, R: 4, fold: (x, y) => [0, Math.sin((x * 0.3 + y) * 1.4) * 0.45] });
-    crease([[-6, -94], [6.5, -91]], -0.25); crease([[-5.5, -91], [6.8, -94.5]], 0.15);
-    if (o.head.jewel) { ell(6.4, -92.6, 1.3, 1.5, { m: o.head.jewel, R: 1, v: 0.3 }); }
-  }
-  if (ht === 'crown' || o.head?.crown) {
-    const cy = ht === 'turban' ? -97 : -93;
-    p.poly(TP([[-5.6, cy + 1.6], [6.2, cy + 1.6], [6.6, cy - 1.6], [5.2, cy - 4.2], [3.8, cy - 1.8], [1.6, cy - 5.6], [-0.4, cy - 1.8], [-2.6, cy - 4.4], [-4, cy - 1.8], [-5.8, cy - 1.6]]), { m: M.brass, R: 1.5, v: 0.05 });
-    dot(1.6, cy - 0.4, M.red, 0.4); dot(-3, cy, M.teal, 0.4); dot(5, cy, M.teal, 0.4);
-  }
-  if (ht === 'cap') ell(0, -93.4, 5.8, 3.6, { m: o.head.m, R: 3 });
-  if (ht === 'helmet') {
-    ell(0.4, -91.6, 6.6, 5.4, { m: M.metal, R: 4 });
-    p.poly(TP([[-4, -90], [-6, -84], [-4.4, -80], [-2, -84]]), { m: M.metal, R: 1.4, v: -0.1 });
-    tube([[-6, -97], [-1, -100.5], [5, -98.6]], 1.6, 1.2, { m: M.red, R: 1.4, fold: curly(1.2, 0.6) });
-  }
-  // rasgos
-  if (o.eyes !== 'closed') { dot(4.6, -88, M.ink, 0.2); dot(3.6, -88, M.ink, 0.35); }
-  else { dot(4.6, -87.6, M.ink, 0.3); dot(3.6, -87.4, M.ink, 0.3); }
-  const browM = bd && bd.len ? bd.m : o.hair ?? M.hair;
-  dot(5.2, -89.6, browM, -0.1); dot(4.2, -89.8, browM, -0.1);
-  if (!bd || !bd.len) { dot(5.4, -82.8, M.lips, 0.2); dot(1.4, -85.2, skin, -0.18, true); }
-  else dot(5.4, -82.8, M.ink, 0.35);
+  const [hcx, hcy] = T(2, -86);
+  const hairStyle = ht === 'longhair' ? 'long' : (ht === 'hair' || ht === 'crown') ? (o.curly ? 'curly' : 'short') : null;
+  drawHead(p, { cx: hcx, cy: hcy, dir: 1, hs: o.hs ?? 1, skin, young: o.young, female: o.female ?? (ht === 'veil' || ht === 'hood'), eyes: o.eyes,
+    hair: hairStyle ? { style: hairStyle, m: ht === 'longhair' ? o.head.m : o.hair ?? M.hair } : null,
+    beard: o.beard, faceV: o.faceV,
+    wear: ht === 'hood' || ht === 'veil' ? { type: 'veil', m: o.head.m, m2: o.head.m2, trim: o.head.trim } : ht === 'cloth' ? { type: 'cloth', m: o.head.m, m2: o.head.m2 } : ht === 'turban' ? { type: 'turban', m: o.head.m, jewel: o.head.jewel, crown: o.head.crown } : ht === 'crown' ? { type: 'crown' } : ht === 'cap' ? { type: 'cap', m: o.head.m } : ht === 'helmet' ? { type: 'helmet' } : {} });
   // ---- brazo cercano
-  const sleeveR = o.shortSleeve ? 2.6 : 3.3;
-  tube([[3, -77], eN, hN], sleeveR, 2.5, { m: o.shortSleeve ? skin : sleeve, R: 2.6, fold: vfold(1.6, 0.25) });
-  if (o.cuff) cap(...T(eN[0] + (hN[0] - eN[0]) * 0.72, eN[1] + (hN[1] - eN[1]) * 0.72), ...T(eN[0] + (hN[0] - eN[0]) * 0.8, eN[1] + (hN[1] - eN[1]) * 0.8), 2.7, 2.7, { m: o.cuff, R: 1.5 });
+  drawArm(p, T(3, -77), T(eN[0], eN[1]), T(hN[0], hN[1]), { m: sleeve, skin, short: o.shortSleeve, hand: false, cuff: o.cuff, bell: o.bell });
   // objetos en las manos
   const [Hx, Hy] = T(hN[0], hN[1]);
   if (item.type === 'gift') {
@@ -201,8 +169,7 @@ export function persona(p, o, t = {}) {
   if (item.type === 'flute') { const [mx, my] = T(7, -83); p.cap(mx + 1, my + 1, Hx + 6, Hy + 4, 0.7, 0.8, { m: M.wood, R: 0.6, v: 0.15 }); }
   if (item.type === 'scroll') { p.cap(Hx - 1, Hy - 4, Hx + 1, Hy + 6, 1.6, 1.6, { m: M.cream, R: 1.4 }); }
   if (item.type === 'bowl') p.ell(Hx + 2, Hy - 1, 4, 1.8, { m: M.clay, R: 1.5 });
-  p.ell(Hx, Hy - 0.4, 2.3, 2.6, { m: skin, R: 2 });
-  if (item.type === 'staff' || item.type === 'crook' || item.type === 'spear' || item.type === 'torch') p.crease([[Hx - 1.6, Hy - 1], [Hx + 1.6, Hy - 1.4]], -0.2);
+  { const [ex, ey] = T(eN[0], eN[1]), dx = Hx - ex, dy = Hy - ey, L = Math.hypot(dx, dy) || 1; drawHand(p, Hx + dx / L * 1.8, Hy + dy / L * 1.8, armN[2] || 'relaxed', { skin }); }
   // cordero sobre los hombros
   if (item.type === 'lamb') {
     const [sx, sy] = T(-1, -80);
@@ -213,25 +180,26 @@ export function persona(p, o, t = {}) {
   return { hand: [Hx, Hy] };
 }
 
-// ---------------- Ángel en vuelo (mirando a la derecha) ----------------
+// ---------------- Ángel (túnica larga que ondea, alas grandes) ----------------
 export function angel(p, t, o = {}) {
   const fl = t.f || 0, ang = [0.28, 0, -0.32][fl];
   const wing = (bx, by, far) => {
     const base = -2.95 + ang;
     for (let k = 7; k >= 0; k--) {
-      const a = base + k * 0.19, L = 20 + k * 3.4 - (k > 5 ? (k - 5) * 5 : 0);
-      p.cap(bx + Math.cos(a) * 5, by + Math.sin(a) * 5, bx + Math.cos(a) * L, by + Math.sin(a) * L, 3.4, 1.3, { m: M.feather, R: 2.4, v: (far ? -0.22 : 0) + k * 0.015, ol: 1 });
+      const a = base + k * 0.19, L = 22 + k * 3.6 - (k > 5 ? (k - 5) * 5 : 0);
+      p.cap(bx + Math.cos(a) * 5, by + Math.sin(a) * 5, bx + Math.cos(a) * L, by + Math.sin(a) * L, 3.5, 1.3, { m: M.feather, R: 2.4, v: (far ? -0.22 : 0) + k * 0.015, ol: 1 });
     }
-    p.ell(bx + Math.cos(base + 0.7) * 8, by + Math.sin(base + 0.7) * 8, 10, 6.5, { m: M.feather, R: 5, rot: base + 0.7, v: far ? -0.16 : 0.1 });
-    p.ell(bx + Math.cos(base + 0.9) * 5, by + Math.sin(base + 0.9) * 5, 6, 4.5, { m: M.feather, R: 4, rot: base + 0.9, v: far ? -0.1 : 0.16 });
+    p.ell(bx + Math.cos(base + 0.7) * 8, by + Math.sin(base + 0.7) * 8, 10.5, 7, { m: M.feather, R: 5, rot: base + 0.7, v: far ? -0.16 : 0.1 });
+    p.ell(bx + Math.cos(base + 0.9) * 5, by + Math.sin(base + 0.9) * 5, 6.4, 4.6, { m: M.feather, R: 4, rot: base + 0.9, v: far ? -0.1 : 0.16 });
   };
-  wing(-5, -75, true);
-  wing(-1, -72, false);
-  const sw = Math.sin((t.s || 0) * 6.28) * 1.5, robe = o.robe ?? M.cream;
-  p.poly([[8, -79], [3, -81], [-3, -81], [-8, -78], [-10.5, -66], [-12, -52], [-16, -40], [-22, -30 + sw], [-30, -24 + sw], [-36, -19 + sw * 1.5], [-27, -17], [-18, -19], [-12, -21], [-4, -25], [4, -30], [10, -40], [11, -56], [10.5, -68]], { m: robe, smooth: 2, R: 6, fold: radial(-2, -60, 12, 0.4, 6, 30), v: 0.1 });
-  p.cap(-11, -54, 10.5, -55, 1.3, 1.3, { m: M.brass, R: 1 });
-  p.crease([[-36, -19], [-27, -17], [-18, -19], [-12, -21], [-4, -25], [4, -30]], 0.35, M.brass);
-  persona(p, { tunic: robe, pose: 'stand', noFarArm: true, head: { type: 'longhair', m: M.straw }, faceV: 0.14, young: true, armN: o.arm || 'up', item: o.item || {}, skin: M.skin, noBody: true, ...o.persona }, {});
+  wing(-5, -74, true);
+  wing(-1, -71, false);
+  const robe = o.robe ?? M.cream, sw = Math.sin((t.s || 0) * 6.28 + fl) * 1.2;
+  // bajo de la túnica que ondea hacia atrás
+  p.poly([[-10.6, -32], [-13, -16], [-16 - sw, -6], [-20 - sw, 0], [-14, -1.6], [-9, 1.2], [-4, -0.6], [2, 1.6], [8, 0], [12.6, 1], [13.4, -4], [12.2, -16], [10.6, -32]], { m: robe, smooth: 2, R: 5, v: 0.06 });
+  persona(p, { tunic: robe, pose: 'stand', noFarArm: !!o.noFar, head: { type: 'longhair', m: M.straw }, faceV: 0.14, young: true, female: true, armN: o.arm || 'up', armF: o.armF || 'chest', item: o.item || {}, skin: M.skin, belt: M.brass, beltEnd: true, eyes: o.eyes, ...o.persona }, {});
+  // pies descalzos que asoman
+  p.ell(5, -0.4, 2.8, 1.2, { m: M.skin, R: 1, v: 0.05 });
   if (o.lily) { const [hx, hy] = [15, -72]; p.cap(hx, hy + 4, hx + 2, hy - 12, 0.5, 0.5, { m: M.leaf, R: 0, ol: 0 }); for (const [x, y] of [[hx + 2, hy - 13], [hx + 4, hy - 10], [hx + 1, hy - 9]]) p.circ(x, y, 1.4, { m: M.white, R: 1.2, v: 0.25 }); }
-  p.ell(1, -97.6, 5.4, 1.4, { m: M.gold, v: 0.7, R: 0, ol: 0 });
+  p.ell(1, -97.6, 5.6, 1.4, { m: M.gold, v: 0.7, R: 0, ol: 0 });
 }

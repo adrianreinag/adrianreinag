@@ -262,9 +262,9 @@ export function buildPortal(R, variant = 'nacimiento') {
     A({ w: 56, h: 46, ox: 28, oy: 42, x: 244, y: 224, cast: 0.22, draw: (p) => F.pesebre(p, { sheet: family }) }),
   ];
   if (family) L.push(
-    A({ w: 40, h: 24, ox: 21, oy: 18, x: 244, y: 193, draw: F.nino, key: t => `${Math.round((Math.sin(t * 1.4) * 0.5 + 0.5) * 2)}`, parse: k => ({ a: +k }) }),
-    A({ w: 60, h: 74, ox: 38, oy: 69, x: 186, y: FLOOR, cast: 0.3, draw: F.maria, key: t => `${breath(t, 4.2)}`, parse: k => ({ b: +k }) }),
-    A({ w: 44, h: 118, ox: 22, oy: 114, x: 313, y: FLOOR + 1, cast: 0.32, draw: F.jose, key: t => `${breath(t, 4.9, 1.7)}`, parse: k => ({ b: +k }) }),
+    A({ w: 40, h: 24, ox: 21, oy: 18, x: 244, y: 193, light: [0, -0.5, 0.86], draw: F.nino, key: t => `${Math.round((Math.sin(t * 1.4) * 0.5 + 0.5) * 2)}`, parse: k => ({ a: +k }) }),
+    A({ w: 64, h: 78, ox: 40, oy: 72, x: 186, y: FLOOR, cast: 0.3, light: [0.62, -0.55, 0.56], draw: F.maria, key: t => `${breath(t, 4.2)}`, parse: k => ({ b: +k }) }),
+    A({ w: 70, h: 124, ox: 34, oy: 116, x: 311, y: FLOOR + 1, cast: 0.32, flip: true, light: [-0.62, -0.55, 0.56], draw: (p, st) => persona(p, { ...CAST.jose, armF: 'chest' }, st), key: t => `${breath(t, 4.9, 1.7)}`, parse: k => ({ b: +k }) }),
   );
   const visitors = V === 'pastores' || V === 'reyes';
   if (!visitors) L.push(A({ w: 36, h: 22, ox: 18, oy: 18, x: 142, y: 254, scale: 1.35, draw: F.gato, key: t => `${(t % 4.4) < 0.5 ? 1 : 0}`, parse: k => ({ tail: +k * 1.5 }) }));

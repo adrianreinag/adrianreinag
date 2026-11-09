@@ -1,6 +1,7 @@
 // Figuras del belén pintadas con primitivas volumétricas. Coordenadas locales: (0,0) en el suelo,
 // y negativa hacia arriba. Cada función recibe el pintor y el estado de animación.
 import { M, newObj, noise, smooth, lerp } from './engine.js';
+import { head, arm, hand } from './anatomy.js';
 
 // pliegues de tela: perturban la normal
 export const vfold = (freq, amp, ph = 0) => (x, y) => [Math.sin(x * freq + y * 0.1 + ph + noise(x * 0.15, y * 0.07) * 2.6) * amp, 0];
@@ -12,35 +13,23 @@ export const radial = (cx, cy, k, amp, r0 = 4, r1 = 16) => (x, y) => {
 const curly = (s, a) => (x, y) => [(noise(x * s, y * s) - 0.5) * a, (noise(x * s + 9.3, y * s - 4.1) - 0.5) * a];
 const up = (b, lim) => pts => pts.map(([x, y]) => [x, y < lim ? y - b : y]);
 
-// ---------------- María arrodillada, mirando a la derecha ----------------
+// ---------------- María arrodillada, mirando a la derecha, en oración ----------------
 export function maria(p, t) {
   const b = t.b || 0, U = up(b, -30);
-  const robeF = vfold(1.05, 0.32), mantF = radial(-1, -50, 15, 0.42, 5, 18);
-  // túnica rosa (debajo)
-  p.poly(U([[3, -48], [8, -47], [11, -42], [11.5, -35], [11, -28], [12.5, -20], [15, -11], [17, -4], [18.5, 0], [6, 1], [0, -4], [-2, -14], [-1, -28], [0, -40]]), { m: M.rose, smooth: 2, R: 5, fold: robeF });
-  // velo blanco: cabeza y caída al pecho
-  p.ell(6.6, -55.6 - b, 6.2, 7, { m: M.white, R: 4, v: 0.08 });
-  p.poly(U([[3, -51], [11, -50.5], [12.8, -47], [10.5, -43.8], [4, -43.4], [2, -47]]), { m: M.white, smooth: 1, R: 3, v: 0.08, fold: vfold(1.4, 0.25) });
-  // rostro
-  const fo = newObj();
-  p.ell(8.7, -54.7 - b, 4.2, 5.2, { m: M.skin, R: 4, obj: fo, v: 0.1 });
-  p.ell(12.6, -54.3 - b, 1.25, 1.7, { m: M.skin, R: 1.5, obj: fo, v: 0.1 });
-  p.ell(10.4, -50.8 - b, 2.5, 1.7, { m: M.skin, R: 2, obj: fo, v: 0.1 });
-  // manto azul: capucha y caída hasta el suelo
-  p.poly(U([[12.2, -61.6], [9, -64.2], [4, -64.8], [-1, -62.6], [-4.5, -58], [-6.5, -52], [-9.5, -45], [-12.5, -36], [-15.5, -26], [-19.5, -16], [-24.5, -7], [-30.5, -1.5], [-34, 1], [-12, 1.2], [-2, 1.2], [2, -6], [3.2, -16], [4.2, -26], [6, -33], [7.2, -40], [6.2, -45], [4.4, -48], [3.8, -52], [4.4, -57], [7, -60.2], [10, -60.8]]), { m: M.blue, smooth: 2, R: 6, fold: mantF });
-  // ribete dorado del manto
-  p.crease(U([[4.4, -57], [3.8, -52], [4.4, -48], [6.2, -45]]), 0.25);
-  // antebrazo (manga rosa) y manos juntas
-  p.cap(5, -34 - b, 12, -41 - b, 2.9, 2.1, { m: M.rose, R: 2.6, fold: vfold(2, 0.2) });
-  p.poly(U([[11, -40], [13, -43.6], [15.2, -47.6], [16.7, -48.8], [17.2, -46], [16.2, -42], [14, -39.4], [12, -38.9]]), { m: M.skin, smooth: 1, R: 2 });
-  p.crease(U([[13.6, -41], [16.2, -46.8]]), -0.18);
-  // detalles del rostro: ojos bajos, ceja, boca, cabello
-  const y = -b;
-  p.dot(9.6, -55.4 + y, M.ink, 0.3); p.dot(10.6, -55.2 + y, M.ink, 0.3);
-  p.dot(9.6, -57.2 + y, M.skin, -0.28, true); p.dot(10.7, -57.4 + y, M.skin, -0.28, true);
-  p.dot(11.4, -51.8 + y, M.lips, 0.25);
-  p.dot(10.8, -53.4 + y, M.skin, 0.08, true);
-  p.dot(5.4, -59.4 + y, M.hair, 0.1); p.dot(6.4, -59.9 + y, M.hair, 0.15); p.dot(5.2, -58.4 + y, M.hair, 0.05);
+  // manto azul que cae por la espalda y se extiende por el suelo
+  p.poly(U([[2, -57], [-3, -55], [-7, -49], [-10, -41], [-13, -31], [-17, -19], [-22, -9], [-29, -2], [-34, 1], [-10, 1.2], [-2, 1.2], [1.5, -6], [2.5, -16], [3.4, -26], [5, -34], [6.4, -42], [6, -49], [4, -53]]), { m: M.blue, smooth: 2, R: 6, v: -0.06 });
+  for (const [a, c] of [[[-6, -44], [-20, -4]], [[-2, -40], [-10, -3]], [[-10, -32], [-27, -1]]]) { p.crease(U([a, c]), -0.5); p.crease(U([[a[0] + 1, a[1] + 1.5], [c[0] + 1, c[1]]]), 0.3); }
+  // túnica rosa
+  p.poly(U([[3, -49], [8, -48], [11, -43], [11.6, -35], [11.2, -28], [12.6, -20], [15, -11], [17, -4], [18.6, 0], [6, 1], [0, -4], [-2, -14], [-1, -28], [0, -41]]), { m: M.rose, smooth: 2, R: 5 });
+  for (const [a, c] of [[[10, -30], [16, -2]], [[7, -27], [11, -1]]]) { p.crease(U([a, c]), -0.45); p.crease(U([[a[0] + 1, a[1] + 1], [c[0] + 1, c[1]]]), 0.3); }
+  // manto por delante del hombro, con ribete dorado
+  p.poly(U([[2.6, -51], [6.8, -49.6], [7.6, -45], [6.6, -39], [5.4, -33], [4.2, -25], [3.2, -15], [2.8, -5], [3.2, 1.2], [-12, 1.2], [-8, -10], [-6, -24], [-5, -38], [-4, -47], [-1, -51]]), { m: M.blue, smooth: 2, R: 5 });
+  p.crease(U([[7.6, -45], [6.6, -39], [5.4, -33], [4.2, -25], [3.2, -15], [2.8, -5], [3.2, 0.6]]), 0.45, M.brass);
+  for (const [a, c] of [[[0, -42], [-4, -3]], [[3, -36], [0, -3]]]) { p.crease(U([a, c]), -0.45); p.crease(U([[a[0] + 1, a[1] + 1.5], [c[0] + 1, c[1]]]), 0.25); }
+  // cabeza con velo y manto; ojos bajos mirando al Niño
+  head(p, { cx: 7.4, cy: -56.5 - b, dir: 1, hs: 0.9, female: true, young: true, eyes: 'closed', faceV: 0.1, wear: { type: 'veil', m: M.blue, m2: M.white, trim: M.brass } });
+  // brazo con manga rosa y manos juntas
+  arm(p, [3.6, -46.5 - b], [6, -37 - b], [11.2, -42.5 - b], { m: M.rose, hand: 'pray', bell: 3.2 });
 }
 
 // ---------------- San José de pie, mirando a la izquierda, con la vara florida ----------------
@@ -91,22 +80,23 @@ export function jose(p, t) {
 // ---------------- El Niño en el pesebre ----------------
 export function nino(p, t) {
   const a = t.a || 0;
-  p.circ(-12, -6, 6.8, { m: M.gold, v: 0.5, ol: 0, R: 0 });
-  p.circ(-12, -6, 5.6, { m: M.gold, v: 0.68, ol: 0, R: 0 });
-  // pañales con fajas
-  p.cap(-7, -4, 9, -3, 4.7, 3.7, { m: M.white, R: 3.6, v: 0.06, fold: vfold(0.9, 0.18) });
-  for (const x of [-4, 0, 4, 8]) p.crease([[x - 1.5, -7.6], [x + 1.5, 0]], -0.22);
-  // brazo que se alza
+  p.circ(-12, -6, 7.4, { m: M.gold, v: 0.48, ol: 0, R: 0 });
+  p.circ(-12, -6, 6.2, { m: M.gold, v: 0.66, ol: 0, R: 0 });
+  // pañales con fajas cruzadas
+  p.cap(-7, -4, 9, -3, 4.8, 3.8, { m: M.white, R: 3.6, v: 0.06 });
+  for (const x of [-3, 1.5, 6]) { p.crease([[x - 1.5, -7.8], [x + 1.6, 0.2]], -0.4); p.crease([[x - 0.5, -7.8], [x + 2.6, 0.2]], 0.2); }
+  // bracito que se alza
   const hx = -3 + a * 0.6, hy = -10 - a * 1.4;
-  p.cap(-5, -6, hx, hy, 1.6, 1.4, { m: M.white, R: 1.4, v: 0.05 });
-  p.circ(hx, hy - 0.8, 1.3, { m: M.skin, R: 1.2 });
-  // cabeza
-  const fo = newObj();
-  p.circ(-11.6, -4.6, 4.3, { m: M.skin, R: 4, obj: fo, v: 0.04 });
-  p.dot(-13.6, -8.4, M.hair, 0.3); p.dot(-12.6, -8.8, M.hair, 0.35); p.dot(-11.4, -8.8, M.hair, 0.3); p.dot(-14.4, -7.6, M.hair, 0.25);
-  p.dot(-13, -4.8, M.ink, 0.35); p.dot(-10.2, -4.8, M.ink, 0.35);
-  p.dot(-11.6, -2.6, M.lips, 0.3);
-  p.dot(-14, -3.4, M.lips, 0.45); p.dot(-9.2, -3.4, M.lips, 0.45);
+  p.cap(-5, -6, hx, hy, 1.7, 1.5, { m: M.white, R: 1.4, v: 0.06 });
+  p.circ(hx, hy - 0.9, 1.4, { m: M.skin, R: 1.2, v: 0.1 });
+  // cabeza: carita de frente, ojos cerrados, mofletes
+  p.circ(-11.6, -4.8, 4.5, { m: M.skin, R: 4.2, v: 0.08 });
+  const [cx, cy] = p._xy(-11.6, -4.8), B = p.b;
+  const put = (dx, dy, m, cel) => { const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= B.w || y >= B.h) return; const k = y * B.w + x; if (!B.mat[k]) return; B.mat[k] = m; B.cel[k] = cel; B.fix[k] = 1; };
+  for (const [dx, dy] of [[-2, -4], [-1, -4], [0, -4], [1, -4], [-1, -5], [2, -3]]) put(dx, dy, M.straw, 0.55);
+  put(-2, 0, M.ink, 0.35); put(-3, 0, M.ink, 0.3); put(1, 0, M.ink, 0.35); put(2, 0, M.ink, 0.3);
+  put(-3, 2, M.lips, 1); put(2, 2, M.lips, 1); put(-1, 2, M.lips, 0.6);
+  put(-1, -2, M.skin, 1); put(0, -2, M.skin, 1);
 }
 
 // ---------------- Pesebre de madera con paja y sábana ----------------

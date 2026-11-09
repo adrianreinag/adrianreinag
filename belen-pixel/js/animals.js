@@ -7,10 +7,14 @@ const curly = (s, a) => (x, y) => [(noise(x * s, y * s) - 0.5) * a, (noise(x * s
 // patas con dos tramos; fase 0..3 (paso diagonal)
 function leg(p, hx, hy, len, ph, o) {
   const a = Math.sin(ph) * 0.42, lift = Math.max(0, Math.cos(ph)) * (o.lift ?? 3);
-  const kx = hx + Math.sin(a) * len * 0.5, ky = hy + len * 0.5 - lift * 0.4;
-  const fx = hx + Math.sin(a) * len + (o.back ? -1.5 : 1.5) * Math.max(0, Math.cos(ph)), fy = hy + len - lift;
-  p.tube([[hx, hy], [kx + (o.back ? -1.4 : 1), ky], [fx, Math.min(0, fy)]], o.r0 ?? 3, o.r1 ?? 1.6, { m: o.m, R: 2, v: o.v || 0, obj: o.obj });
-  p.ell(fx + 0.6, Math.min(0, fy) - 0.8, (o.r1 ?? 1.6) + 0.7, 1.3, { m: o.hoof ?? M.mane, R: 1, v: 0.1 });
+  const kx = hx + Math.sin(a) * len * 0.48 + (o.back ? -1.6 : 1.2), ky = hy + len * 0.5 - lift * 0.4;
+  const fx = hx + Math.sin(a) * len + (o.back ? -1.5 : 1.5) * Math.max(0, Math.cos(ph)), fy = Math.min(0, hy + len - lift);
+  const r0 = o.r0 ?? 3, r1 = o.r1 ?? 1.6, obj = o.obj ?? newObj();
+  // muslo ancho que se estrecha hacia la rodilla
+  p.cap(hx, hy - 2, kx, ky, r0 * 1.35, r1 * 1.25, { m: o.m, R: r0, v: o.v || 0, obj });
+  p.cap(kx, ky, fx, fy - 1.2, r1 * 1.15, r1 * 0.85, { m: o.m, R: r1, v: o.v || 0, obj });
+  p.circ(kx, ky, r1 * 1.3, { m: o.m, R: r1, v: (o.v || 0) + 0.04, obj });
+  p.ell(fx + 0.6, fy - 0.9, r1 + (o.pad ? 1.6 : 0.8), o.pad ? 1.5 : 1.4, { m: o.hoof ?? M.mane, R: 1, v: 0.1 });
 }
 
 // ---------------- Mula andando (o parada) con manta ----------------
@@ -39,7 +43,7 @@ export function mulaPie(p, t, o = {}) {
   p.tube([[26.6, -53 + bob], [25.8 + ea * 0.5, -60 + bob], [26.4 + ea, -65 + bob]], 1.9, 0.8, { m, R: 1.5 });
   p.dot(27.8, -49.6 + bob, M.ink, 0.3); p.dot(38.6, -41 + bob, M.ink, 0.2);
   // cabezada y ronzal
-  p.crease([[27, -47 + bob], [33, -44 + bob]], -0.3, M.weave);
+  p.crease([[29, -49 + bob], [31, -42 + bob]], -0.2, M.wood); p.crease([[33.4, -44.6 + bob], [36.8, -43.6 + bob]], -0.2, M.wood);
   if (o.rope) p.tube([[34, -42 + bob], [40, -38], ...o.rope], 0.5, 0.5, { m: M.rope, R: 0, ol: 0 });
   // manta y alforjas
   p.poly([[-12, -43.5 + bob], [10, -44 + bob], [12, -27 + bob], [-11, -26 + bob]], { m: o.blanket ?? M.weave, smooth: 1, R: 3, v: (x) => (Math.floor((x + 40) / 3) % 3 === 0 ? -0.3 : 0.06), fold: vfold(0.8, 0.2) });
@@ -56,18 +60,20 @@ export function camello(p, t, o = {}) {
   const bob = w === 1 || w === 3 ? -1 : 0, m = M.camel, hair = curly(0.45, 0.32);
   const P = (k) => (ph == null ? (k % 2 ? 0.3 : -0.3) : ph + k * Math.PI);
   // paso de ambladura: patas del mismo lado a la vez
-  leg(p, 15, -46 + bob, 46, P(1), { m, v: -0.16, r0: 4, r1: 2, lift: 5, hoof: M.camel });
-  leg(p, -17, -48 + bob, 48, P(1), { m, v: -0.16, back: true, r0: 4.6, r1: 2, lift: 5, hoof: M.camel });
+  leg(p, 15, -46 + bob, 46, P(1), { m, v: -0.16, r0: 4.6, r1: 2.4, lift: 5, hoof: M.camel, pad: true });
+  leg(p, -17, -48 + bob, 48, P(1), { m, v: -0.16, back: true, r0: 5.4, r1: 2.4, lift: 5, hoof: M.camel, pad: true });
   p.tube([[-27, -60 + bob], [-31, -50], [-30, -40]], 1.4, 1, { m, R: 1 });
   p.ell(-30, -38.6, 1.6, 2.6, { m: M.brown, R: 1.4 });
   const body = newObj();
-  p.ell(0, -58 + bob, 28, 14, { m, R: 11, obj: body, fold: hair });
-  p.ell(-3, -71 + bob, 15, 10, { m, R: 9, obj: body, fold: hair });
+  p.ell(0, -57 + bob, 29, 15, { m, R: 12, obj: body, fold: hair });
+  p.ell(-3, -72 + bob, 17, 12, { m, R: 10, obj: body, fold: hair });
+  p.ell(16, -58 + bob, 11, 12, { m, R: 9, obj: body, fold: hair });
   // cuello en S y cabeza
-  p.tube([[20, -60 + bob], [30, -56 + bob], [38, -66 + bob], [40, -82 + bob]], 7.5, 4.4, { m, R: 4.5, obj: body, fold: hair });
+  p.tube([[22, -62 + bob], [31, -54 + bob], [38, -62 + bob], [41, -80 + bob]], 8.5, 4.8, { m, R: 5, obj: body, fold: hair });
   const hd = newObj();
-  p.cap(39, -86 + bob, 51, -82 + bob, 5.4, 3.6, { m, R: 4, obj: hd, v: 0.06 });
-  p.ell(51.6, -81.6 + bob, 3.4, 3, { m: M.muzzle, R: 2.4, obj: hd });
+  p.cap(39, -86 + bob, 51, -82 + bob, 5.8, 3.8, { m, R: 4, obj: hd, v: 0.06 });
+  p.ell(51.6, -81.2 + bob, 3.6, 3.2, { m: M.muzzle, R: 2.4, obj: hd });
+  p.ell(51, -78.4 + bob, 2.4, 1.2, { m: M.muzzle, R: 1, v: -0.1 });
   p.ell(38.6, -91 + bob, 2, 1.4, { m, R: 1.2, rot: -0.6 });
   p.dot(43, -88 + bob, M.ink, 0.3); p.dot(54, -82.6 + bob, M.ink, 0.2); p.crease([[51, -79.6 + bob], [54.6, -79.6 + bob]], -0.3);
   // gualdrapa, borlas y silla
@@ -81,8 +87,8 @@ export function camello(p, t, o = {}) {
   if (o.packs) { p.ell(-20, -64 + bob, 6, 7, { m: M.burlap, R: 4 }); p.ell(-24, -56 + bob, 4.4, 5, { m: M.weave, R: 3 }); p.poly([[14, -74 + bob], [22, -74 + bob], [22, -66 + bob], [14, -66 + bob]], { m: M.brass, R: 1.5, v: 0.05 }); }
   // campanilla
   p.cap(36, -66 + bob, 36, -62 + bob, 0.5, 0.5, { m: M.rope, R: 0, ol: 0 }); p.ell(36, -61 + bob, 1.6, 1.8, { m: M.brass, R: 1.2, v: 0.2 });
-  leg(p, 15, -46 + bob, 46, P(0), { m, r0: 4, r1: 2, lift: 5, hoof: M.camel });
-  leg(p, -17, -48 + bob, 48, P(0), { m, back: true, r0: 4.6, r1: 2, lift: 5, hoof: M.camel });
+  leg(p, 15, -46 + bob, 46, P(0), { m, r0: 4.6, r1: 2.4, lift: 5, hoof: M.camel, pad: true });
+  leg(p, -17, -48 + bob, 48, P(0), { m, back: true, r0: 5.4, r1: 2.4, lift: 5, hoof: M.camel, pad: true });
   return { saddle: [0, -86 + bob] };
 }
 // camello echado (descansando)

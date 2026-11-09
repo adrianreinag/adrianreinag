@@ -80,7 +80,7 @@ export function chaikin(pts, it = 2, closed = true) {
 export function bboxOf(pts, pad = 1) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; } return [x0 - pad, y0 - pad, x1 + pad, y1 + pad]; }
 
 // ---------- G-buffer ----------
-const KEYS = ['mat', 'val', 'nx', 'ny', 'nz', 'obj', 'ord', 'ol', 'ao', 'emi'];
+const KEYS = ['mat', 'val', 'nx', 'ny', 'nz', 'obj', 'ord', 'ol', 'ao', 'emi', 'cel'];
 export class GBuf {
   constructor(w, h) {
     this.w = w; this.h = h; const n = (this.n = w * h);
@@ -88,6 +88,8 @@ export class GBuf {
     this.nx = new Float32Array(n); this.ny = new Float32Array(n); this.nz = new Float32Array(n).fill(1);
     this.obj = new Uint32Array(n); this.ord = new Uint32Array(n); this.ol = new Uint8Array(n);
     this.ao = new Float32Array(n).fill(1); this.emi = new Float32Array(n);
+    // cel: sombreado plano precalculado de figuras (-1 = iluminación normal); fix: píxel dibujado a mano
+    this.cel = new Float32Array(n).fill(-1); this.fix = new Uint8Array(n);
   }
   copyFrom(o) { for (const k of KEYS) this[k].set(o[k]); }
   // lista compacta de píxeles ocupados para volcar rápido
@@ -165,6 +167,21 @@ export class Painter {
       }
     }
   }
+  // sello dibujado a mano: filas de caracteres, 1 carácter = 1 píxel real (no se escala)
+  // map: carácter -> [material, tono 0..1, valor]; anchor en coordenadas locales; flip invierte en horizontal
+  stamp(lx, ly, rows, map, o = {}) {
+    const b = this.b, [X0, Y0] = this._xy(lx, ly), h = rows.length, w = rows[0].length;
+    const ax = o.ax ?? Math.floor(w / 2), ay = o.ay ?? Math.floor(h / 2);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const ch = rows[j][o.flip ? w - 1 - i : i]; if (ch === '.' || ch === ' ') continue;
+      const e = map[ch]; if (!e) continue;
+      const X = X0 + i - ax, Y = Y0 + j - ay; if (X < 0 || Y < 0 || X >= b.w || Y >= b.h) continue;
+      const k = Y * b.w + X;
+      if (o.onlyOn && !b.mat[k]) continue;
+      if (!b.mat[k]) { b.ord[k] = this.ord++; b.obj[k] = o.obj ?? b.obj[k]; b.nx[k] = 0; b.ny[k] = 0; b.nz[k] = 1; b.ol[k] = o.ol ?? 2; b.ao[k] = 1; b.emi[k] = 0; }
+      b.mat[k] = e[0]; b.cel[k] = e[1]; b.val[k] = e[2] || 0; b.fix[k] = 1;
+    }
+  }
   // oclusión ambiental elíptica (sombras de contacto)
   aoBlob(cx, cy, rx, ry, s, cond) {
     const b = this.b, sc = this.s, X0 = cx * sc + this.ox, Y0 = cy * sc + this.oy, RX = rx * sc, RY = ry * sc;
@@ -177,13 +194,32 @@ export class Painter {
   }
 }
 
+// ---------- sombreado plano estilo sprite: 4 tonos con una luz fija y limpieza de píxeles sueltos ----------
+export const CEL = [0.1, 0.4, 0.7, 1];
+export function bakeCel(b, L = [-0.5, -0.62, 0.6], flip = false) {
+  const lx = flip ? -L[0] : L[0], ly = L[1], lz = L[2], n = b.n, w = b.w, q = new Int8Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    if (!b.mat[i] || b.fix[i]) continue;
+    const d = b.nx[i] * lx + b.ny[i] * ly + b.nz[i] * lz + b.val[i] * 0.8;
+    q[i] = d < -0.12 ? 0 : d < 0.38 ? 1 : d < 0.82 ? 2 : 3;
+  }
+  // limpieza: un píxel distinto a sus 4 vecinos del mismo objeto adopta el tono mayoritario
+  for (let pass = 0; pass < 2; pass++) for (let i = w; i < n - w; i++) {
+    if (q[i] < 0) continue;
+    const o = b.obj[i], nb = [i - 1, i + 1, i - w, i + w].filter(j => q[j] >= 0 && b.obj[j] === o && b.mat[j] === b.mat[i]);
+    if (nb.length < 3) continue;
+    if (nb.every(j => q[j] !== q[i])) { const c = [0, 0, 0, 0]; nb.forEach(j => c[q[j]]++); q[i] = c.indexOf(Math.max(...c)); }
+  }
+  for (let i = 0; i < n; i++) if (q[i] >= 0) { b.cel[i] = CEL[q[i]]; b.val[i] *= 0.25; }
+}
+
 // ---------- capas animadas: cada actor tiene fotogramas cacheados ----------
 export class Actor {
   constructor(o) { Object.assign(this, { key: () => '0', cast: 0 }, o); this.cache = new Map(); }
   frame(t) {
     const k = this.key(t);
     let f = this.cache.get(k);
-    if (!f) { const b = new GBuf(this.w, this.h); const p = new Painter(b, this.ox, this.oy, this.scale || 1); this.draw(p, t, k); f = b.pack(); this.cache.set(k, f); }
+    if (!f) { const b = new GBuf(this.w, this.h); const p = new Painter(b, this.ox, this.oy, this.scale || 1); this.draw(p, t, k); if (this.cel !== false) bakeCel(b, this.light, this.flip); f = b.pack(); this.cache.set(k, f); }
     return f;
   }
 }
@@ -198,13 +234,14 @@ export class Renderer {
     this.shadOrd = 0;
   }
   blit(f, dx, dy, ordBase, flip = false) {
+    dx = Math.round(dx); dy = Math.round(dy);
     const G = this.G, u = f.used, fw = f.w;
     for (let k = 0; k < u.length; k++) {
       const s = u[k], sx = s % fw, sy = (s - sx) / fw, X = (flip ? fw - 1 - sx : sx) + dx, Y = sy + dy;
       if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
       const i = Y * W + X;
       G.mat[i] = f.mat[s]; G.val[i] = f.val[s]; G.nx[i] = flip ? -f.nx[s] : f.nx[s]; G.ny[i] = f.ny[s]; G.nz[i] = f.nz[s];
-      G.obj[i] = f.obj[s]; G.ord[i] = f.ord[s] + ordBase; G.ol[i] = f.ol[s]; G.ao[i] = f.ao[s]; G.emi[i] = f.emi[s];
+      G.obj[i] = f.obj[s]; G.ord[i] = f.ord[s] + ordBase; G.ol[i] = f.ol[s]; G.ao[i] = f.ao[s]; G.emi[i] = f.emi[s]; G.cel[i] = f.cel[s];
     }
   }
   // capa de fondo desplazable con repetición horizontal (paralaje)
@@ -214,7 +251,7 @@ export class Renderer {
       const s = y * bw + ((x + o) % bw); if (!b.mat[s]) continue;
       const i = y * W + x;
       G.mat[i] = b.mat[s]; G.val[i] = b.val[s]; G.nx[i] = b.nx[s]; G.ny[i] = b.ny[s]; G.nz[i] = b.nz[s];
-      G.obj[i] = b.obj[s]; G.ord[i] = b.ord[s] + ordBase; G.ol[i] = b.ol[s]; G.ao[i] = b.ao[s]; G.emi[i] = b.emi[s];
+      G.obj[i] = b.obj[s]; G.ord[i] = b.ord[s] + ordBase; G.ol[i] = b.ol[s]; G.ao[i] = b.ao[s]; G.emi[i] = b.emi[s]; G.cel[i] = b.cel[s];
     }
   }
   // sombra de contacto dinámica sobre lo ya compuesto
@@ -235,7 +272,26 @@ export class Renderer {
       const m = G.mat[i]; if (!m) { idx[i] = 0; lum[i] = 0; continue; }
       const T = MATS[m];
       let I;
+      const cl = G.cel[i];
       if (T.unlit) I = G.val[i];
+      else if (cl >= 0) {
+        const ex = 1 - sh[i];
+        let a = (a0 + a1 * ex) * (0.7 + 0.3 * G.ao[i]) + moonI * ex * 0.62;
+        for (let k = 0; k < nl; k++) {
+          const Lk = lights[k], dx = Lk.x - x, dy = Lk.y - y, dz = Lk.z;
+          const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > Lk.r) continue;
+          let f = 1 - d / Lk.r; f *= f;
+          if (Lk.shadow && G.ord[i] < this.shadOrd) f *= 1 - shad[i];
+          if (Lk.inside) f *= 0.2 + 0.8 * sh[i];
+          a += Lk.i * f * (0.55 + 0.45 * dz / d);
+        }
+        if (hl[i] > 0) a += hl[i] * 0.6;
+        I = a * (0.28 + 0.86 * cl) * T.albedo * T.gain + G.val[i];
+        lum[i] = I + G.emi[i];
+        const tt = lum[i] * (T.n - 1);
+        idx[i] = tt <= 0 ? 0 : tt >= T.n - 1 ? T.n - 1 : Math.round(tt);
+        continue;
+      }
       else {
         const nx = G.nx[i], ny = G.ny[i], nz = G.nz[i], ex = 1 - sh[i], w = T.wrap;
         let a = (a0 + a1 * ex) * G.ao[i];
@@ -267,7 +323,7 @@ export class Renderer {
         const o = obj[i], r = ord[i];
         const e = (x > 0 && obj[i - 1] !== o && ord[i - 1] < r) || (x < W - 1 && obj[i + 1] !== o && ord[i + 1] < r) ||
           (y > 0 && obj[i - W] !== o && ord[i - W] < r) || (y < H - 1 && obj[i + W] !== o && ord[i + W] < r);
-        if (e) k = Math.max(0, k - (lum[i] > 0.9 ? 1 : ol[i]));
+        if (e) k = Math.max(0, k - (G.cel[i] >= 0 ? (G.cel[i] > 0.6 ? 1 : Math.max(1, ol[i])) : lum[i] > 0.9 ? 1 : ol[i]));
       }
       const c = m ? MATS[m].ramp[k] : [0, 0, 0], j = i * 4;
       d[j] = c[0]; d[j + 1] = c[1]; d[j + 2] = c[2]; d[j + 3] = 255;

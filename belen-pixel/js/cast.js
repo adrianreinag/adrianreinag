@@ -4,7 +4,7 @@ import { M } from './engine.js';
 export const CAST = {
   jose: { tunic: M.green, mantle: { m: M.ochre, style: 'back' }, head: { type: 'hair' }, hair: M.beard, hairV: -0.06, beard: { len: 1, m: M.beard }, belt: M.rope, item: { type: 'staff' }, armN: 'staff' },
   joseWalk: { tunic: M.green, mantle: { m: M.ochre, style: 'back' }, head: { type: 'hair' }, hair: M.beard, hairV: -0.06, beard: { len: 1, m: M.beard }, belt: M.rope, item: { type: 'staff' }, armN: 'staff', pose: 'walk' },
-  maria: { tunic: M.rose, head: { type: 'hood', m: M.blue, m2: M.white, trim: M.brass }, mantle: { m: M.blue, style: 'back' }, faceV: 0.1, young: true },
+  maria: { tunic: M.rose, head: { type: 'hood', m: M.blue, m2: M.white, trim: M.brass }, mantle: { m: M.blue, style: 'wrap', trim: M.brass }, faceV: 0.1, young: true, female: true, armN: 'pray', armF: 'pray' },
   pastor: { tunic: M.burlap, short: true, legs: M.skin, mantle: { style: 'fleece' }, head: { type: 'cloth', m: M.cream, m2: M.ink }, beard: { len: 1, m: M.hair }, belt: M.rope, item: { type: 'crook' }, armN: 'staff', shortSleeve: true },
   pastorViejo: { tunic: M.brown, short: true, legs: M.skin, mantle: { m: M.burlap, style: 'sash' }, head: { type: 'cloth', m: M.white, m2: M.brown }, beard: { len: 2, m: M.beard }, faceV: -0.02, item: { type: 'staff' }, armN: 'staff', belt: M.rope },
   pastorCordero: { tunic: M.cream, short: true, legs: M.skin, head: { type: 'cloth', m: M.teal, m2: M.ink }, beard: { len: 1, m: M.hair }, belt: M.rope, item: { type: 'lamb' }, armN: 'up', shortSleeve: true },
