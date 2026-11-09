@@ -31,7 +31,8 @@ function paint(S, time, V) {
   for (let k = 0; k < 10; k++) E.olive(p, r() * W, 190 + r() * 8, 0.35 + r() * 0.15, r);
   // suelo de tierra batida
   E.ridge(p, x => 204 + 2 * Math.sin(x * 0.05), M.dirt, -4, W + 4, 272, { n: [0, -0.75, 0.65], v: (x, y) => (fbm(x * 0.06, y * 0.12) - 0.5) * 0.3 + (noise(x * 0.9, y * 1.8) - 0.5) * 0.1 });
-  E.stones(p, 60, r, rr => [rr() * W, 208 + rr() * 60]);
+  E.stones(p, 40, r, rr => [rr() * W, 208 + rr() * 60]);
+  for (let k = 0; k < 700; k++) { const x = r() * W, y = 210 + r() ** 0.7 * 60, nr = (y - 206) / 66; if (noise(x * 0.05, y * 0.1) < 0.45) continue; p.cap(x, y, x, y - 0.6 - nr * 2.2, 0.45, 0.4, { m: M.grass, R: 0, ol: 0, v: 0.1 + r() * 0.2 }); }
   for (let k = 0; k < 24; k++) E.grassTuft(p, r() * W, 210 + r() * 60, 4 + r() * 5, r);
   // casa de María (izquierda)
   lit.push(...E.house(p, { x: 14, y: 214, w: 118, ht: 66, side: 10, m: M.plaster, beams: true, stairs: 'right',
@@ -110,7 +111,7 @@ export function buildNazaret(R, V = 'noche') {
     lights.push(t => ({ x: 176, y: 140, z: 30, r: 170, i: 0.85 + 0.05 * Math.sin(t * 2) }));
   }
   if (V === 'taller') {
-    S.add({ w: 80, h: 130, ox: 34, oy: 116, x: 404, y: GY - 6, flip: true, key: t => `${Math.floor(t * 3) % 2}`, draw: (p, t, k) => persona(p, { ...CAST.jose, mantle: null, armN: +k ? 'forward' : 'offer', armF: +k ? 'forward' : 'offer', item: {}, lean: 0.12 }, {}) });
+    S.add({ w: 80, h: 130, ox: 34, oy: 116, x: 394, y: GY - 8, flip: true, key: t => `${Math.floor(t * 3) % 2}`, draw: (p, t, k) => persona(p, { ...CAST.jose, mantle: null, armN: +k ? 'forward' : 'offer', armF: +k ? 'forward' : 'offer', item: {}, lean: 0.12 }, {}) });
     S.add({ w: 80, h: 120, ox: 34, oy: 104, x: 166, y: GY + 4, key: t => `${breath(t, 4)}`, draw: P({ ...CAST.maria, pose: 'kneel', armN: 'hold', armF: 'hold', mantle: null }) });
     S.add({ w: 18, h: 14, ox: 9, oy: 11, x: 60, y: 129, flip: true, key: t => `${(t % 2.5) < 0.4 ? 1 : 0}`, draw: (p, t, k) => paloma(p, { h: +k }) });
     S.hens = [[270, 236], [292, 240]];

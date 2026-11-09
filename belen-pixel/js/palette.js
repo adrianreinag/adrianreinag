@@ -1,80 +1,104 @@
-// Rampas de color (de sombra a luz) con desplazamiento de tono: sombras hacia azul-violeta
-// nocturno, luces hacia el ámbar del candil. Cada material ilumina dentro de su rampa.
+// Paleta limitada del belén: 11 rampas maestras con desplazamiento de tono (sombras frías hacia el
+// violeta, luces cálidas hacia el ámbar). Cada material usa un tramo de una rampa compartida, de modo que
+// toda la imagen comparte los mismos colores, como en el pixel art hecho a mano.
 import { defMat } from './engine.js';
 
-defMat('sky', ['#03041a', '#060a24', '#0a0f30', '#0f163c', '#151d48', '#1c2454', '#252a5e', '#302f66', '#3d356e', '#4c3c74'], { unlit: true, dither: 1, ol: 0 });
-defMat('far1', ['#0b0d26', '#10132f', '#151a39', '#1b2244', '#232b50', '#2c3458'], { unlit: true, dither: 0.8, ol: 0 });
-defMat('far2', ['#07081a', '#0b0e24', '#10152e', '#161d38', '#1e2644', '#28304e'], { unlit: true, dither: 0.8, ol: 1 });
-defMat('town', ['#0b0b1e', '#13142a', '#1c1e36', '#272a44', '#343a54', '#444c66', '#586078', '#6c768c'], { dither: 0.3, ol: 1 });
-defMat('rock', ['#0b0914', '#14101c', '#1f1926', '#2c2230', '#3b2d38', '#4c3a40', '#5f4a4a', '#755c54', '#8e705e', '#aa876c', '#c6a07e'], { dither: 0.6, ol: 1 });
-defMat('wall', ['#09070f', '#110d17', '#1b1520', '#271d28', '#342630', '#443238', '#564040', '#6c5048', '#866252', '#a07660'], { dither: 0.6, ol: 1, albedo: 0.92 });
-defMat('moss', ['#070d0a', '#0c1810', '#132416', '#1c321c', '#284422', '#365828', '#486c30', '#5e823a', '#7a9a48'], { dither: 0.6, ol: 1 });
-defMat('dirt', ['#0d0a10', '#181217', '#251b1d', '#342622', '#45322a', '#583f31', '#6c4e3a', '#835f45', '#9c7452', '#b48a62'], { dither: 0.6, ol: 1 });
-defMat('straw', ['#1c130f', '#352413', '#523817', '#714f1d', '#906824', '#ae842e', '#c9a03c', '#e0bc50', '#f2d66c', '#fcec96'], { dither: 0.35, ol: 1 });
-defMat('thatch', ['#120d10', '#1f1816', '#30261d', '#433624', '#57472c', '#6d5a35', '#846e40', '#9c844e', '#b49b60', '#cab274'], { dither: 0.4, ol: 1 });
-defMat('wood', ['#0e090d', '#1b1113', '#2b1b17', '#3d271c', '#513322', '#664129', '#7d5132', '#96633c', '#b07848', '#c88e58'], { dither: 0.35, ol: 2 });
-defMat('rope', ['#16100e', '#2a2016', '#40321e', '#58462a', '#725c38', '#8c7448', '#a88e5a'], { dither: 0.2, ol: 1 });
-defMat('clay', ['#110a0c', '#22110e', '#381a12', '#512616', '#6c341c', '#894524', '#a5582e', '#be6e3a', '#d4884c', '#e8a466'], { dither: 0.3, ol: 2, spec: 0.15 });
-defMat('skin', ['#2a1418', '#47201f', '#6a3028', '#8e4836', '#b2644c', '#c88064', '#dc9c80', '#ecb89c', '#f8d2b8', '#ffe8d6'], { dither: 0, ol: 2, wrap: 0.45 });
-defMat('ink', ['#080506', '#130b0c', '#22140f', '#321e15', '#46291c'], { dither: 0, ol: 0 });
-defMat('lips', ['#2a0c12', '#4c141a', '#6e1e22', '#90302e', '#b2483e', '#cc6450'], { dither: 0, ol: 0, wrap: 0.45 });
-defMat('blue', ['#06071e', '#0b1036', '#111850', '#18246c', '#203488', '#2a46a4', '#3a5cbe', '#5076d4', '#6c94e6', '#94b6f4', '#c0d6fc'], { dither: 0.25, ol: 2 });
-defMat('white', ['#1a1828', '#2c2a40', '#423f56', '#5a566c', '#747082', '#908a98', '#ada5ae', '#c9bfc2', '#e1d6d2', '#f2e9e0', '#fffaf2'], { dither: 0.2, ol: 2, wrap: 0.3 });
-defMat('rose', ['#180916', '#2a0e1e', '#421428', '#5e1a30', '#7c2238', '#9a2c40', '#b63c48', '#ce5452', '#e27260', '#f09474', '#fab894'], { dither: 0.25, ol: 2 });
-defMat('green', ['#070c10', '#0c1517', '#12201c', '#192d22', '#213a28', '#2a4a2e', '#365a34', '#466c3e', '#5a8048', '#729656', '#90ae6a'], { dither: 0.25, ol: 2 });
-defMat('ochre', ['#170c0b', '#2a150f', '#422011', '#5e2e13', '#7c3f16', '#9a521a', '#b66820', '#cc802a', '#e09c3a', '#f0b850', '#fad272'], { dither: 0.25, ol: 2 });
-defMat('hair', ['#0a0708', '#170e10', '#251815', '#36221a', '#4a2e20', '#5e3c28', '#744c32'], { dither: 0, ol: 2 });
-defMat('beard', ['#120e12', '#221c1c', '#352d2a', '#4a403a', '#61564c', '#7a6e60', '#958876', '#b2a68e', '#cec2a8', '#e4dac2'], { dither: 0.15, ol: 2 });
-defMat('gold', ['#4a2a0c', '#7a4610', '#a86614', '#d08a1c', '#f0b02c', '#ffd048', '#ffe680', '#fff6c0'], { unlit: true, dither: 0.6, ol: 0 });
-defMat('ox', ['#100809', '#1d0e0d', '#2e1610', '#422013', '#582b17', '#6f381c', '#884723', '#a2592c', '#bc6e38', '#d48848', '#e8a460'], { dither: 0.35, ol: 2, wrap: 0.25 });
-defMat('muzzle', ['#221816', '#3a2c26', '#544238', '#6e584a', '#8a725e', '#a68e76', '#c0a88e', '#d8c2a6', '#ecdac0'], { dither: 0.2, ol: 2, wrap: 0.3 });
-defMat('horn', ['#181412', '#2e2822', '#4a4034', '#6a5c48', '#8c7c62', '#ae9e80', '#cec0a0', '#e8dcc0'], { dither: 0, ol: 2 });
-defMat('mule', ['#09090f', '#111119', '#1a1a24', '#24242f', '#2f2f3b', '#3c3c48', '#4b4b56', '#5c5c66', '#706f78', '#878590', '#a3a0a8', '#c0bcc0'], { dither: 0.35, ol: 2, wrap: 0.25 });
-defMat('mulel', ['#262430', '#3e3c48', '#5a5662', '#76727c', '#949098', '#b2acb2', '#cec8ca', '#e6e0dc'], { dither: 0.2, ol: 2 });
-defMat('mane', ['#050508', '#0c0c12', '#15151c', '#202028', '#2c2c34', '#3a3a42'], { dither: 0.2, ol: 2 });
-defMat('wool', ['#1c1a28', '#2f2d3a', '#46434f', '#5f5b66', '#7a7480', '#97909a', '#b4acb2', '#cfc5c6', '#e5dbd6', '#f4ece4', '#fffaf2'], { dither: 0.3, ol: 2, wrap: 0.3 });
-defMat('sheepf', ['#120a0a', '#22130e', '#361e13', '#4c2a18', '#64381f', '#7e4a28', '#985e34', '#b07444'], { dither: 0, ol: 2 });
-defMat('cat', ['#120909', '#24100b', '#3a190e', '#552512', '#723317', '#90441d', '#ac5826', '#c47032', '#d88c44', '#eaaa5e'], { dither: 0.2, ol: 2 });
-defMat('dove', ['#181824', '#2a2a38', '#40404e', '#585766', '#72707e', '#8e8a98', '#aaa5b0', '#c6c0c8', '#e0d9dc', '#f2ecea'], { dither: 0.2, ol: 2 });
-defMat('burlap', ['#110b0d', '#1e1614', '#2e221c', '#403024', '#53402c', '#685036', '#7e6242', '#967650', '#ae8a60'], { dither: 0.35, ol: 2 });
-defMat('weave', ['#170709', '#2a0b0f', '#430f15', '#5e161a', '#7c1e1f', '#9a2a24', '#b63a2c', '#ce5036', '#e26a44'], { dither: 0.25, ol: 2 });
-defMat('grass', ['#050a0b', '#091210', '#0e1c15', '#14261a', '#1b321e', '#243e22', '#2e4c28', '#3a5a2e'], { dither: 0.4, ol: 1 });
-defMat('olive', ['#05080e', '#090e14', '#0e161a', '#14201e', '#1b2a24', '#24362a', '#2e4230', '#3a5036', '#485e3e'], { dither: 0.5, ol: 1 });
-defMat('trunk', ['#09070c', '#121014', '#1c171b', '#272022', '#332a2a', '#403432', '#4e403a', '#5e4e44'], { dither: 0.4, ol: 2 });
-defMat('flame', ['#c04a10', '#ff8a20', '#ffb840', '#ffe080', '#fff6d0'], { unlit: true, dither: 0, ol: 0 });
-defMat('window', ['#3a1a0c', '#70300e', '#b05a16', '#e88a22', '#ffb842', '#ffdc80', '#fff4c0'], { unlit: true, dither: 0, ol: 0 });
-defMat('ember', ['#2a0a06', '#601808', '#a0300c', '#e05a14', '#ff9a30', '#ffd070'], { unlit: true, dither: 0, ol: 0 });
-defMat('metal', ['#0c0c12', '#1a1a22', '#2a2a34', '#3e3e48', '#565660', '#72727a', '#92929a', '#b6b4b8'], { dither: 0, ol: 2, spec: 0.4 });
-defMat('feather', ['#2a2a40', '#44445e', '#62627c', '#82829a', '#a4a2b6', '#c4c0d0', '#e0dce6', '#f6f2f6', '#ffffff'], { dither: 0.2, ol: 2, wrap: 0.35 });
-defMat('banner', ['#2a2232', '#463c48', '#665a62', '#88787c', '#aa9890', '#c8b8a6', '#e2d4bc', '#f4ead2'], { dither: 0.2, ol: 2 });
-defMat('brass', ['#1e1008', '#3a200c', '#5c3410', '#844c14', '#ac6a1c', '#d08c2a', '#eab040', '#f8d468', '#fff0a8'], { dither: 0, ol: 2, spec: 0.5 });
-defMat('skind', ['#160a0c', '#261212', '#3a1c18', '#50281e', '#683626', '#80462e', '#985838', '#ae6c46', '#c48458'], { dither: 0, ol: 2, wrap: 0.45 });
-defMat('purple', ['#0e0614', '#1a0a22', '#2a1034', '#3c1848', '#50205c', '#662c72', '#7e3c88', '#98529e', '#b26cb4', '#cc8cca'], { dither: 0.25, ol: 2 });
-defMat('teal', ['#050c10', '#081618', '#0c2224', '#123030', '#183e3c', '#204e4a', '#2a605a', '#36746c', '#468a80', '#5aa294'], { dither: 0.25, ol: 2 });
-defMat('red', ['#14060a', '#24080e', '#3a0c14', '#54121a', '#701820', '#8c2026', '#a82c2c', '#c43c34', '#da5640', '#ec7a54'], { dither: 0.25, ol: 2 });
-defMat('cream', ['#1c1820', '#302a30', '#463e42', '#5e5454', '#786c68', '#94867e', '#ae9e92', '#c8b8a8', '#ded0bc', '#f0e4d0'], { dither: 0.25, ol: 2 });
-defMat('brown', ['#100a0c', '#1c1214', '#2c1c1a', '#3e2820', '#523426', '#68422e', '#7e5238', '#966444', '#ae7852'], { dither: 0.25, ol: 2 });
-defMat('camel', ['#140c0c', '#24160f', '#3a2414', '#523418', '#6c461e', '#885a26', '#a27030', '#ba883e', '#d0a052', '#e2b86a'], { dither: 0.3, ol: 2, wrap: 0.25 });
-defMat('plaster', ['#0e0c16', '#1a1622', '#28222e', '#38303a', '#4a4046', '#5e5254', '#746662', '#8c7c74', '#a69486', '#bfac9a', '#d6c4ae', '#eadac2'], { dither: 0.45, ol: 1 });
-defMat('stone', ['#0c0a12', '#16121c', '#221c26', '#302830', '#40363a', '#524644', '#665850', '#7c6c5e', '#94826e', '#ae9a80', '#c8b294'], { dither: 0.45, ol: 1 });
-defMat('water', ['#04081a', '#081228', '#0c1c38', '#122a4a', '#1a3a5c', '#244c6c', '#30607c', '#40768c', '#56909e', '#74acb2'], { dither: 0.6, ol: 0 });
-defMat('sand', ['#120c10', '#201616', '#30221c', '#423022', '#56402a', '#6c5234', '#84663e', '#9c7a4a', '#b49058', '#caa66a', '#dcbc80'], { dither: 0.6, ol: 1 });
-defMat('skyDusk', ['#141030', '#1e1640', '#2c1c4c', '#3e2254', '#542858', '#6e2e58', '#8a3a54', '#a64c4c', '#c06446', '#d88446', '#eca850', '#f8cc70'], { unlit: true, dither: 1, ol: 0 });
-defMat('skyDay', ['#3a5a9a', '#4468a8', '#5076b4', '#5e86c0', '#6e96ca', '#80a6d2', '#94b6da', '#a8c4e0', '#bcd2e6', '#d0e0ea'], { unlit: true, dither: 1, ol: 0 });
-defMat('cloud', ['#2a2a48', '#3e3a5a', '#56506c', '#706880', '#8c8294', '#aa9ea8', '#c6b8bc', '#e0d2d0', '#f4e8e2'], { dither: 0.6, ol: 0, wrap: 0.5 });
-defMat('fire', ['#5a1406', '#a02c08', '#e05010', '#ff8a20', '#ffc040', '#ffe890', '#fffadc'], { unlit: true, dither: 0, ol: 0 });
-defMat('leaf', ['#060c08', '#0a160c', '#102212', '#183018', '#20401e', '#2c5226', '#3a662e', '#4c7c38', '#629444'], { dither: 0.5, ol: 1 });
-defMat('palm', ['#060a08', '#0c140e', '#122014', '#1a2c18', '#24381c', '#304622', '#3e5628', '#4e682e', '#627c36'], { dither: 0.4, ol: 1 });
-defMat('marble', ['#16141e', '#24202c', '#34303c', '#48424e', '#5e5862', '#767078', '#908890', '#aaa2a8', '#c4bcc0', '#dcd6d6', '#f0eae6'], { dither: 0.3, ol: 1, spec: 0.3 });
-defMat('tile', ['#100608', '#1e0a0c', '#300e10', '#461614', '#5e1e18', '#78281c', '#923420', '#ac4428', '#c45632'], { dither: 0.3, ol: 1 });
-// variantes de lejanía, agua y nubes según la hora
-defMat('far1day', ['#4e6290', '#566a98', '#60749e', '#6a7ea6', '#7688ac', '#8292b2', '#8e9cb8'], { unlit: true, dither: 0.8, ol: 0 });
-defMat('far2day', ['#3e5c62', '#46646a', '#4e6c70', '#587476', '#627c7c', '#6e8682', '#7a9088'], { unlit: true, dither: 0.8, ol: 1 });
-defMat('far1dusk', ['#24183c', '#2c1c44', '#36224c', '#422852', '#4e2e58', '#5a345c', '#663a60'], { unlit: true, dither: 0.8, ol: 0 });
-defMat('far2dusk', ['#1a1230', '#201638', '#281a40', '#301e46', '#3a244c', '#442a50', '#4e3054'], { unlit: true, dither: 0.8, ol: 1 });
-defMat('far1dawn', ['#363052', '#3e385a', '#484062', '#524868', '#5e506e', '#6a5874', '#76607a'], { unlit: true, dither: 0.8, ol: 0 });
-defMat('far2dawn', ['#262440', '#2c2a48', '#343050', '#3c3656', '#463c5c', '#504262', '#5a4866'], { unlit: true, dither: 0.8, ol: 1 });
-defMat('waterdusk', ['#160e2a', '#241432', '#341a3a', '#48223e', '#602c42', '#7c3a46', '#9a4c4a', '#b8644e', '#d48256', '#eaa462'], { dither: 0.6, ol: 0 });
-defMat('waternight', ['#03061a', '#060c24', '#0a142e', '#101c3a', '#162646', '#1e3052', '#283c5e', '#344a6a', '#425a76'], { dither: 0.6, ol: 0 });
-defMat('clouddusk', ['#24163a', '#341c44', '#48244e', '#5e2c56', '#78365a', '#94445c', '#b0565e', '#ca7060', '#e09066', '#f2b47c'], { dither: 0.6, ol: 0, wrap: 0.5 });
-defMat('rosestone', ['#160a10', '#261016', '#3a161c', '#501e22', '#682828', '#80342e', '#984236', '#b05440', '#c46a4e', '#d68660', '#e6a276'], { dither: 0.5, ol: 1 });
+export const RAMPS = {
+  night: ['#0b0a1c', '#141433', '#1d2150', '#25336e', '#2c4a92', '#3a66b4', '#5288d0', '#78ace4', '#a8d0f4'],
+  stone: ['#120f18', '#1e1824', '#2c2330', '#3c303c', '#4e4048', '#625352', '#7a6a60', '#968470', '#b4a088', '#d2c0a4'],
+  earth: ['#160e10', '#271916', '#3b261c', '#523424', '#6a462e', '#84593a', '#9e6e48', '#b88658', '#d0a06c', '#e4bc88'],
+  wood: ['#130a0c', '#241210', '#391c14', '#51281a', '#6b3620', '#874628', '#a35a32', '#bd7240', '#d48e54', '#e8ac70'],
+  gold: ['#2a1608', '#4a2a0c', '#6e4210', '#945c16', '#b87a1e', '#d69a2a', '#ecbc40', '#f8d862', '#fff09a', '#fffbe0'],
+  green: ['#0a110f', '#122019', '#1b3022', '#26422a', '#335532', '#43683a', '#577c42', '#6e924c', '#8aa85c', '#a8c070'],
+  red: ['#1a0a12', '#30101c', '#4a1624', '#661c2a', '#842630', '#a03438', '#ba4840', '#d06250', '#e28266', '#f0a684'],
+  skin: ['#2a1418', '#47201f', '#6a3028', '#8e4836', '#b2644c', '#c88064', '#dc9c80', '#ecb89c', '#f8d2b8', '#ffe8d6'],
+  white: ['#1c1a26', '#302c3a', '#46404e', '#5e5664', '#78707a', '#958b92', '#b2a8ac', '#ccc2c0', '#e2d8d2', '#f2ece4', '#fffaf2'],
+  purple: ['#100818', '#1e0e2a', '#30163e', '#442054', '#5a2c6a', '#723a80', '#8c4e96', '#a868ac', '#c488c4'],
+  teal: ['#06100f', '#0a1c1c', '#10292a', '#173838', '#204a48', '#2a5e5a', '#38746c', '#4a8c80', '#62a494'],
+};
+const R = RAMPS;
+const S = (r, a, b) => r.slice(a, b);
+const dusk = [R.night[0], R.purple[1], R.purple[2], R.purple[3], R.red[3], R.red[4], R.red[5], R.red[7], R.wood[7], R.gold[5], R.gold[6], R.gold[7]];
+
+// cielo y lejanías (sin luz propia)
+defMat('sky', [R.night[0], '#0e0d26', R.night[1], '#181a40', R.night[2], '#222a5e', R.night[3], R.purple[3], R.purple[4], R.purple[5]], { unlit: true, dither: 1, ol: 0 });
+defMat('far1', S(R.night, 1, 6), { unlit: true, dither: 0.8, ol: 0 });
+defMat('far2', S(R.night, 0, 5), { unlit: true, dither: 0.8, ol: 1 });
+defMat('far1day', [R.night[5], R.night[6], R.night[7], R.night[8], R.white[8]], { unlit: true, dither: 0.8, ol: 0 });
+defMat('far2day', [R.teal[4], R.teal[5], R.teal[6], R.teal[7], R.teal[8], R.night[7]], { unlit: true, dither: 0.8, ol: 1 });
+defMat('far1dusk', S(R.purple, 2, 7), { unlit: true, dither: 0.8, ol: 0 });
+defMat('far2dusk', S(R.purple, 1, 6), { unlit: true, dither: 0.8, ol: 1 });
+defMat('far1dawn', [R.purple[4], R.purple[5], R.purple[6], R.purple[7], R.red[8]], { unlit: true, dither: 0.8, ol: 0 });
+defMat('far2dawn', S(R.purple, 3, 8), { unlit: true, dither: 0.8, ol: 1 });
+defMat('skyDusk', dusk, { unlit: true, dither: 1, ol: 0 });
+defMat('skyDay', [R.night[4], R.night[5], R.night[6], R.night[7], R.night[8], R.white[8], R.white[9]], { unlit: true, dither: 1, ol: 0 });
+defMat('cloud', S(R.white, 3, 11), { dither: 0.5, ol: 0, wrap: 0.5 });
+defMat('clouddusk', [R.purple[3], R.purple[4], R.red[3], R.red[5], R.red[7], R.red[8], R.gold[6], R.gold[7]], { dither: 0.5, ol: 0, wrap: 0.5 });
+// piedra, tierra, agua
+defMat('rock', S(R.stone, 0, 10), { dither: 0.5, ol: 1 });
+defMat('wall', S(R.stone, 0, 9), { dither: 0.5, ol: 1, albedo: 0.92 });
+defMat('stone', S(R.stone, 0, 10), { dither: 0.4, ol: 1 });
+defMat('plaster', [...S(R.stone, 0, 6), R.earth[7], R.earth[8], R.earth[9], R.white[8], R.white[9]], { dither: 0.4, ol: 1 });
+defMat('town', S(R.stone, 0, 8), { dither: 0.3, ol: 1 });
+defMat('marble', S(R.white, 0, 11), { dither: 0.3, ol: 1, spec: 0.3 });
+defMat('rosestone', [R.stone[0], R.red[1], R.red[2], R.red[3], R.wood[4], R.wood[5], R.red[6], R.wood[7], R.red[8], R.wood[9], R.red[9]], { dither: 0.5, ol: 1 });
+defMat('dirt', S(R.earth, 0, 10), { dither: 0.5, ol: 1 });
+defMat('sand', [...S(R.earth, 0, 10), R.gold[8]], { dither: 0.5, ol: 1 });
+defMat('water', S(R.night, 0, 9), { dither: 0.5, ol: 0 });
+defMat('waterdusk', [R.night[0], R.night[1], R.purple[2], R.purple[3], R.night[3], R.purple[4], R.purple[5], R.red[5], R.wood[7], R.gold[6]], { dither: 0.5, ol: 0 });
+defMat('waternight', S(R.night, 0, 7), { dither: 0.5, ol: 0 });
+// vegetación
+defMat('grass', S(R.green, 0, 8), { dither: 0.4, ol: 1 });
+defMat('moss', S(R.green, 0, 10), { dither: 0.4, ol: 1 });
+defMat('olive', [R.night[0], R.green[1], R.teal[2], R.green[3], R.teal[4], R.green[5], R.green[6], R.green[7]], { dither: 0.4, ol: 1 });
+defMat('leaf', S(R.green, 0, 10), { dither: 0.4, ol: 1 });
+defMat('palm', S(R.green, 0, 9), { dither: 0.3, ol: 1 });
+defMat('trunk', [R.stone[0], R.stone[1], R.earth[2], R.stone[3], R.earth[4], R.stone[5], R.earth[6], R.stone[7]], { dither: 0.3, ol: 2 });
+// paja, madera, barro
+defMat('straw', S(R.gold, 0, 10), { dither: 0.2, ol: 1 });
+defMat('thatch', [R.earth[0], R.earth[1], R.earth[2], R.earth[3], R.gold[2], R.gold[3], R.earth[6], R.gold[4], R.earth[8], R.gold[6]], { dither: 0.3, ol: 1 });
+defMat('wood', S(R.wood, 0, 10), { dither: 0.2, ol: 2 });
+defMat('rope', [R.earth[1], R.earth[2], R.earth[3], R.earth[5], R.earth[6], R.earth[7], R.earth[8]], { dither: 0, ol: 1 });
+defMat('clay', S(R.wood, 0, 10), { dither: 0.2, ol: 2, spec: 0.15 });
+defMat('burlap', S(R.earth, 0, 9), { dither: 0.2, ol: 2 });
+defMat('brown', S(R.earth, 0, 9), { dither: 0.2, ol: 2 });
+defMat('tile', S(R.wood, 0, 9), { dither: 0.2, ol: 1 });
+// personas
+defMat('skin', R.skin, { dither: 0, ol: 2, wrap: 0.45 });
+defMat('skind', [R.skin[0], R.skin[1], R.wood[2], R.skin[2], R.wood[3], R.skin[3], R.wood[5], R.skin[4], R.wood[7]], { dither: 0, ol: 2, wrap: 0.45 });
+defMat('ink', [R.night[0], R.stone[0], R.stone[1], R.wood[1], R.wood[2]], { dither: 0, ol: 0 });
+defMat('lips', [R.red[1], R.red[2], R.red[4], R.red[5], R.red[7], R.red[8]], { dither: 0, ol: 0, wrap: 0.45 });
+defMat('hair', [R.night[0], R.stone[0], R.wood[1], R.wood[2], R.wood[3], R.wood[4], R.wood[5]], { dither: 0, ol: 2 });
+defMat('beard', S(R.white, 0, 10), { dither: 0, ol: 2 });
+defMat('blue', [...S(R.night, 0, 9), R.white[10]], { dither: 0, ol: 2 });
+defMat('white', S(R.white, 0, 11), { dither: 0, ol: 2, wrap: 0.3 });
+defMat('cream', [R.stone[1], R.stone[2], R.stone[3], R.stone[4], R.stone[5], R.stone[6], R.earth[7], R.earth[8], R.earth[9], R.white[9]], { dither: 0, ol: 2 });
+defMat('rose', S(R.red, 0, 10), { dither: 0, ol: 2 });
+defMat('red', S(R.red, 0, 10), { dither: 0, ol: 2 });
+defMat('weave', S(R.red, 0, 9), { dither: 0, ol: 2 });
+defMat('green', S(R.green, 0, 10), { dither: 0, ol: 2 });
+defMat('teal', S(R.teal, 0, 9), { dither: 0, ol: 2 });
+defMat('ochre', [R.wood[0], R.wood[1], R.wood[2], R.gold[2], R.gold[3], R.gold[4], R.gold[5], R.gold[6], R.gold[7], R.gold[8]], { dither: 0, ol: 2 });
+defMat('purple', S(R.purple, 0, 9), { dither: 0, ol: 2 });
+defMat('brass', [R.wood[1], R.gold[1], R.gold[2], R.gold[3], R.gold[4], R.gold[5], R.gold[6], R.gold[7], R.gold[8]], { dither: 0, ol: 2, spec: 0.5 });
+defMat('metal', S(R.stone, 0, 9), { dither: 0, ol: 2, spec: 0.4 });
+defMat('feather', S(R.white, 2, 11), { dither: 0, ol: 2, wrap: 0.35 });
+defMat('banner', S(R.white, 2, 10), { dither: 0, ol: 2 });
+defMat('wool', S(R.white, 0, 11), { dither: 0.2, ol: 2, wrap: 0.3 });
+// animales
+defMat('ox', S(R.wood, 0, 10), { dither: 0.2, ol: 2, wrap: 0.25 });
+defMat('muzzle', [...S(R.earth, 2, 10), R.white[8]], { dither: 0, ol: 2 });
+defMat('horn', [R.stone[1], R.stone[3], R.earth[4], R.earth[6], R.earth[8], R.white[7], R.white[8]], { dither: 0, ol: 2 });
+defMat('mule', S(R.stone, 0, 10), { dither: 0.2, ol: 2, wrap: 0.25 });
+defMat('mulel', S(R.white, 2, 10), { dither: 0, ol: 2 });
+defMat('mane', [R.night[0], R.stone[0], R.stone[1], R.stone[2], R.stone[3]], { dither: 0, ol: 2 });
+defMat('sheepf', S(R.wood, 0, 7), { dither: 0, ol: 2 });
+defMat('cat', S(R.wood, 0, 10), { dither: 0, ol: 2 });
+defMat('dove', S(R.white, 0, 10), { dither: 0, ol: 2 });
+defMat('camel', S(R.earth, 0, 10), { dither: 0.2, ol: 2, wrap: 0.25 });
+// luz propia
+defMat('gold', S(R.gold, 2, 10), { unlit: true, dither: 0.6, ol: 0 });
+defMat('flame', [R.wood[6], R.gold[5], R.gold[6], R.gold[8], R.gold[9]], { unlit: true, dither: 0, ol: 0 });
+defMat('window', [R.wood[3], R.wood[5], R.gold[4], R.gold[5], R.gold[6], R.gold[7], R.gold[9]], { unlit: true, dither: 0, ol: 0 });
+defMat('ember', [R.red[2], R.red[4], R.wood[6], R.gold[5], R.gold[7], R.gold[8]], { unlit: true, dither: 0, ol: 0 });
+defMat('fire', [R.red[3], R.red[6], R.wood[7], R.gold[5], R.gold[7], R.gold[8], R.gold[9]], { unlit: true, dither: 0, ol: 0 });

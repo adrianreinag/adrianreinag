@@ -37,7 +37,7 @@ export function buildHerodes(R) {
   for (const ax of [74, 136]) { p.cap(ax, 214, ax, 184, 3, 3, { m: M.brass, R: 2.6 }); p.circ(ax, 182, 4, { m: M.brass, R: 3, v: 0.12 }); }
   // braseros
   for (const bx of [200, 470]) { p.poly([[bx - 9, 238], [bx + 9, 238], [bx + 6, 222], [bx - 6, 222]], { m: M.metal, R: 2 }); p.ell(bx, 220, 12, 3.4, { m: M.brass, R: 2 }); p.ell(bx, 219, 9, 2, { m: M.ember, R: 0, v: 0.6, ol: 0 }); }
-  S.light.moonDir = [0.5, -0.6, 0.6]; S.light.moon = 0.15; S.light.amb0 = 0.1; S.light.amb1 = 0;
+  S.light.moonDir = [0.5, -0.6, 0.6]; S.light.moon = 0.15; S.light.amb0 = 0.08; S.light.amb1 = 0; S.light.bgDim = 0.6; S.key = [-0.3, -0.6, 0.74];
   S.shelter.fill(1);
   const breath = (t, per, ph = 0) => ((t + ph) % per) / per < 0.45 ? 1 : 0;
   S.add({ w: 90, h: 150, ox: 36, oy: 134, x: 30, y: 230, key: t => `${breath(t, 5)}`, draw: (p2, t, k) => persona(p2, CAST.soldado, { b: +k }) });

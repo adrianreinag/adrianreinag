@@ -23,9 +23,58 @@ export const bayer = (x, y) => BAYER[(x & 3) | ((y & 3) << 2)];
 export const MATS = [null];
 export const M = {};
 export function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+// Paleta común: Endesga 64 (ENDESGA) ampliada con tonos tierra y grises cálidos de Resurrect 64 (Kerrie Lake), vía Lospec.
+// Todas las rampas se ajustan a ella para que la imagen entera comparta colores, como en el pixel art hecho a mano.
+export const PALETTE = ('ff0040 131313 1b1b1b 272727 3d3d3d 5d5d5d 858585 b4b4b4 ffffff c7cfdd 92a1b9 657392 424c6e 2a2f4e 1a1932 0e071b ' +
+  '1c121c 391f21 5d2c28 8a4836 bf6f4a e69c69 f6ca9f f9e6cf edab50 e07438 c64524 8e251d ff5000 ed7614 ffa214 ffc825 ffeb57 d3fc7e ' +
+  '99e65f 5ac54f 33984b 1e6f50 134c4c 0c2e44 00396d 0069aa 0098dc 00cdf9 0cf1ff 94fdff fdd2ed f389f5 db3ffd 7a09fa 3003d9 0c0293 ' +
+  '03193f 3b1443 622461 93388f ca52c9 c85086 f68187 f5555d ea323c c42430 891e2b 571c27 ' +
+  '2e222f 3e3546 625565 966c6c ab947a 694f62 7f708a 9babb2 4c3e24 676633 a2a947 374e4a 547e64 92a984 b2ba90 45293f 6b3e75 7a3045 9e4539 cd683d 323353 484a77').split(' ').map(h => hex('#' + h));
+function oklab([r8, g8, b8]) {
+  const f = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const r = f(r8), g = f(g8), b = f(b8);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * q, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * q, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * q];
+}
+const PLAB = PALETTE.map(oklab);
+export function nearestPal(rgb) {
+  const [L, a, b] = oklab(rgb), C = Math.hypot(a, b); let best = 0, bd = Infinity;
+  PLAB.forEach(([L2, a2, b2], i) => { const C2 = Math.hypot(a2, b2), d = (L - L2) ** 2 * 1.4 + (a - a2) ** 2 + (b - b2) ** 2 + Math.max(0, C2 - C) ** 2 * 1.5; if (d < bd) { bd = d; best = i; } });
+  return PALETTE[best];
+}
+export const PAL = { on: false };
+function palRamp(ramp) {
+  if (!PAL.on) return ramp;
+  const out = [];
+  for (const c of ramp.map(nearestPal)) if (!out.length || out[out.length - 1] !== c) out.push(c);
+  return out.length >= 2 ? out : ramp;
+}
+// Paleta única derivada de las propias rampas: k-medias en OKLab hasta K colores y todas las rampas se reajustan a ella.
+export function unifyPalette(K = 56) {
+  const pts = [], seen = new Set();
+  for (const m of MATS) if (m && !m.keep) for (const c of m.src) { const k = c.join(','); if (!seen.has(k)) { seen.add(k); pts.push(c); } }
+  const lab = pts.map(oklab);
+  // semillas por punto más lejano
+  const cen = [lab[0]];
+  const dist = (a, b) => (a[0] - b[0]) ** 2 * 1.6 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  while (cen.length < Math.min(K, lab.length)) { let bi = 0, bd = -1; lab.forEach((p, i) => { const d = Math.min(...cen.map(c => dist(p, c))); if (d > bd) { bd = d; bi = i; } }); cen.push(lab[bi].slice()); }
+  const asg = new Int32Array(lab.length);
+  for (let it = 0; it < 14; it++) {
+    lab.forEach((p, i) => { let bi = 0, bd = Infinity; cen.forEach((c, j) => { const d = dist(p, c); if (d < bd) { bd = d; bi = j; } }); asg[i] = bi; });
+    const acc = cen.map(() => [0, 0, 0, 0]);
+    lab.forEach((p, i) => { const a = acc[asg[i]]; a[0] += p[0]; a[1] += p[1]; a[2] += p[2]; a[3]++; });
+    acc.forEach((a, j) => { if (a[3]) cen[j] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]]; });
+  }
+  // cada centro se representa con el color real más cercano (colores de la paleta = colores de las rampas)
+  const rep = cen.map(c => { let bi = 0, bd = Infinity; lab.forEach((p, i) => { const d = dist(p, c); if (d < bd) { bd = d; bi = i; } }); return pts[bi]; });
+  const map = new Map(pts.map((c, i) => [c.join(','), rep[asg[i]]]));
+  for (const m of MATS) if (m && !m.keep) { const out = []; for (const c of m.src.map(c => map.get(c.join(',')))) if (!out.length || out[out.length - 1] !== c) out.push(c); m.ramp = out.length >= 2 ? out : m.src; m.n = m.ramp.length; }
+  return rep;
+}
 export function defMat(name, ramp, o = {}) {
   const id = MATS.length;
-  MATS.push({ id, name, ramp: ramp.map(hex), n: ramp.length, dither: o.dither ?? 0.5, unlit: !!o.unlit,
+  const R = o.keep ? ramp.map(hex) : palRamp(ramp.map(hex));
+  MATS.push({ id, name, ramp: R, src: R.slice(), keep: !!o.keep, n: R.length, dither: o.dither ?? 0.5, unlit: !!o.unlit,
     albedo: o.albedo ?? 1, wrap: o.wrap ?? 0.2, ol: o.ol ?? 2, gain: o.gain ?? 1, spec: o.spec ?? 0 });
   M[name] = id; return id;
 }
@@ -80,7 +129,7 @@ export function chaikin(pts, it = 2, closed = true) {
 export function bboxOf(pts, pad = 1) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; } return [x0 - pad, y0 - pad, x1 + pad, y1 + pad]; }
 
 // ---------- G-buffer ----------
-const KEYS = ['mat', 'val', 'nx', 'ny', 'nz', 'obj', 'ord', 'ol', 'ao', 'emi', 'cel'];
+const KEYS = ['mat', 'val', 'nx', 'ny', 'nz', 'obj', 'ord', 'ol', 'ao', 'emi', 'cel', 'spr'];
 export class GBuf {
   constructor(w, h) {
     this.w = w; this.h = h; const n = (this.n = w * h);
@@ -89,7 +138,7 @@ export class GBuf {
     this.obj = new Uint32Array(n); this.ord = new Uint32Array(n); this.ol = new Uint8Array(n);
     this.ao = new Float32Array(n).fill(1); this.emi = new Float32Array(n);
     // cel: sombreado plano precalculado de figuras (-1 = iluminación normal); fix: píxel dibujado a mano
-    this.cel = new Float32Array(n).fill(-1); this.fix = new Uint8Array(n);
+    this.cel = new Float32Array(n).fill(-1); this.fix = new Uint8Array(n); this.spr = new Uint8Array(n);
   }
   copyFrom(o) { for (const k of KEYS) this[k].set(o[k]); }
   // lista compacta de píxeles ocupados para volcar rápido
@@ -196,21 +245,33 @@ export class Painter {
 
 // ---------- sombreado plano estilo sprite: 4 tonos con una luz fija y limpieza de píxeles sueltos ----------
 export const CEL = [0.1, 0.4, 0.7, 1];
-export function bakeCel(b, L = [-0.5, -0.62, 0.6], flip = false) {
-  const lx = flip ? -L[0] : L[0], ly = L[1], lz = L[2], n = b.n, w = b.w, q = new Int8Array(n).fill(-1);
+export function bakeCel(b, L = [-0.5, -0.62, 0.6], flip = false, o = {}) {
+  const lx = flip ? -L[0] : L[0], ly = L[1], lz = L[2], n = b.n, w = b.w, h = b.h, q = new Int8Array(n).fill(-1);
+  const texK = o.texK ?? 0.8, sprite = !!o.sprite;
+  // siluetas limpias en figuras: fuera picos de 1 píxel y rellenar muescas
+  if (sprite) for (let pass = 0; pass < 2; pass++) for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x, nb = [i - 1, i + 1, i - w, i + w];
+    const c = nb.reduce((s2, j) => s2 + (b.mat[j] ? 1 : 0), 0);
+    if (b.mat[i] && c <= 1 && !b.fix[i]) b.mat[i] = 0;
+    else if (!b.mat[i] && c === 4) { const j = i - 1; for (const k of ['mat', 'val', 'nx', 'ny', 'nz', 'obj', 'ord', 'ol', 'ao', 'emi']) b[k][i] = b[k][j]; }
+  }
   for (let i = 0; i < n; i++) {
-    if (!b.mat[i] || b.fix[i]) continue;
-    const d = b.nx[i] * lx + b.ny[i] * ly + b.nz[i] * lz + b.val[i] * 0.8;
+    if (!b.mat[i] || b.fix[i] || MATS[b.mat[i]].unlit) continue;
+    const d = b.nx[i] * lx + b.ny[i] * ly + b.nz[i] * lz + b.val[i] * texK;
     q[i] = d < -0.12 ? 0 : d < 0.38 ? 1 : d < 0.82 ? 2 : 3;
   }
   // limpieza: un píxel distinto a sus 4 vecinos del mismo objeto adopta el tono mayoritario
   for (let pass = 0; pass < 2; pass++) for (let i = w; i < n - w; i++) {
     if (q[i] < 0) continue;
-    const o = b.obj[i], nb = [i - 1, i + 1, i - w, i + w].filter(j => q[j] >= 0 && b.obj[j] === o && b.mat[j] === b.mat[i]);
+    const ob = b.obj[i], nb = [i - 1, i + 1, i - w, i + w].filter(j => q[j] >= 0 && b.obj[j] === ob && b.mat[j] === b.mat[i]);
     if (nb.length < 3) continue;
     if (nb.every(j => q[j] !== q[i])) { const c = [0, 0, 0, 0]; nb.forEach(j => c[q[j]]++); q[i] = c.indexOf(Math.max(...c)); }
   }
-  for (let i = 0; i < n; i++) if (q[i] >= 0) { b.cel[i] = CEL[q[i]]; b.val[i] *= 0.25; }
+  const haze = o.haze || 0;
+  for (let i = 0; i < n; i++) {
+    if (q[i] >= 0) { b.cel[i] = CEL[q[i]] * (1 - haze) + 0.62 * haze; b.val[i] *= sprite ? 0.25 : 0.15; }
+    if (sprite && (b.mat[i] || b.fix[i])) b.spr[i] = 1;
+  }
 }
 
 // ---------- capas animadas: cada actor tiene fotogramas cacheados ----------
@@ -219,7 +280,7 @@ export class Actor {
   frame(t) {
     const k = this.key(t);
     let f = this.cache.get(k);
-    if (!f) { const b = new GBuf(this.w, this.h); const p = new Painter(b, this.ox, this.oy, this.scale || 1); this.draw(p, t, k); if (this.cel !== false) bakeCel(b, this.light, this.flip); f = b.pack(); this.cache.set(k, f); }
+    if (!f) { const b = new GBuf(this.w, this.h); const p = new Painter(b, this.ox, this.oy, this.scale || 1); this.draw(p, t, k); if (this.cel !== false) bakeCel(b, this.light, this.flip, { sprite: true }); f = b.pack(); this.cache.set(k, f); }
     return f;
   }
 }
@@ -241,7 +302,7 @@ export class Renderer {
       if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
       const i = Y * W + X;
       G.mat[i] = f.mat[s]; G.val[i] = f.val[s]; G.nx[i] = flip ? -f.nx[s] : f.nx[s]; G.ny[i] = f.ny[s]; G.nz[i] = f.nz[s];
-      G.obj[i] = f.obj[s]; G.ord[i] = f.ord[s] + ordBase; G.ol[i] = f.ol[s]; G.ao[i] = f.ao[s]; G.emi[i] = f.emi[s]; G.cel[i] = f.cel[s];
+      G.obj[i] = f.obj[s]; G.ord[i] = f.ord[s] + ordBase; G.ol[i] = f.ol[s]; G.ao[i] = f.ao[s]; G.emi[i] = f.emi[s]; G.cel[i] = f.cel[s]; G.spr[i] = f.spr[s];
     }
   }
   // capa de fondo desplazable con repetición horizontal (paralaje)
@@ -251,7 +312,7 @@ export class Renderer {
       const s = y * bw + ((x + o) % bw); if (!b.mat[s]) continue;
       const i = y * W + x;
       G.mat[i] = b.mat[s]; G.val[i] = b.val[s]; G.nx[i] = b.nx[s]; G.ny[i] = b.ny[s]; G.nz[i] = b.nz[s];
-      G.obj[i] = b.obj[s]; G.ord[i] = b.ord[s] + ordBase; G.ol[i] = b.ol[s]; G.ao[i] = b.ao[s]; G.emi[i] = b.emi[s]; G.cel[i] = b.cel[s];
+      G.obj[i] = b.obj[s]; G.ord[i] = b.ord[s] + ordBase; G.ol[i] = b.ol[s]; G.ao[i] = b.ao[s]; G.emi[i] = b.emi[s]; G.cel[i] = b.cel[s]; G.spr[i] = b.spr[s];
     }
   }
   // sombra de contacto dinámica sobre lo ya compuesto
@@ -267,7 +328,7 @@ export class Renderer {
   light(L) {
     const G = this.G, idx = this.idx, lum = this.lum, sh = this.shelter, shad = this.shad, hl = this.hl;
     const lights = L.lights, nl = lights.length;
-    const [mx, my, mz] = L.moonDir, moonI = L.moon, a0 = L.amb0, a1 = L.amb1, hd = L.beamDir;
+    const [mx, my, mz] = L.moonDir, moonI = L.moon, a0 = L.amb0, a1 = L.amb1, hd = L.beamDir, bgDim = L.bgDim ?? 0.84, bgMoon = L.bgMoon ?? 0.42;
     for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) {
       const m = G.mat[i]; if (!m) { idx[i] = 0; lum[i] = 0; continue; }
       const T = MATS[m];
@@ -276,7 +337,8 @@ export class Renderer {
       if (T.unlit) I = G.val[i];
       else if (cl >= 0) {
         const ex = 1 - sh[i];
-        let a = (a0 + a1 * ex) * (0.7 + 0.3 * G.ao[i]) + moonI * ex * 0.62;
+        const sp = G.spr[i];
+        let a = (a0 + a1 * ex) * (0.7 + 0.3 * G.ao[i]) + moonI * ex * (sp ? 0.62 : bgMoon);
         for (let k = 0; k < nl; k++) {
           const Lk = lights[k], dx = Lk.x - x, dy = Lk.y - y, dz = Lk.z;
           const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > Lk.r) continue;
@@ -286,9 +348,9 @@ export class Renderer {
           a += Lk.i * f * (0.55 + 0.45 * dz / d);
         }
         if (hl[i] > 0) a += hl[i] * 0.6;
-        I = a * (0.28 + 0.86 * cl) * T.albedo * T.gain + G.val[i];
+        I = a * (0.4 + 0.86 * cl) * T.albedo * T.gain * (sp ? 1 : bgDim) + G.val[i];
         lum[i] = I + G.emi[i];
-        const tt = lum[i] * (T.n - 1);
+        const tt = lum[i] * (T.n - 1) + (G.spr[i] ? 0 : BAYER[(x & 3) | ((y & 3) << 2)] * T.dither * 0.7);
         idx[i] = tt <= 0 ? 0 : tt >= T.n - 1 ? T.n - 1 : Math.round(tt);
         continue;
       }
@@ -319,7 +381,10 @@ export class Renderer {
     const d = this.img.data, mat = G.mat, obj = G.obj, ord = G.ord, ol = G.ol;
     for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) {
       const m = mat[i]; let k = idx[i];
-      if (m && ol[i]) {
+      if (m && ol[i] && !G.spr[i] && ord[i] < 50000 && G.cel[i] >= 0) {
+        const un = j => mat[j] && MATS[mat[j]].unlit && !MATS[mat[j]].ol;
+        if ((x > 0 && un(i - 1)) || (x < W - 1 && un(i + 1)) || (y > 0 && un(i - W)) || (y < H - 1 && un(i + W))) k = Math.max(0, k - 1);
+      } else if (m && ol[i]) {
         const o = obj[i], r = ord[i];
         const e = (x > 0 && obj[i - 1] !== o && ord[i - 1] < r) || (x < W - 1 && obj[i + 1] !== o && ord[i + 1] < r) ||
           (y > 0 && obj[i - W] !== o && ord[i - W] < r) || (y < H - 1 && obj[i + W] !== o && ord[i + W] < r);

@@ -42,7 +42,13 @@ function nearGround(p, r, o) {
   p.shape((x, y) => top(x) - y, [-4, GROUND - 14, LW + 4, 272], { m: o.m ?? M.dirt, R: 0, n: [0, -0.75, 0.65], ol: 1, v: (x, y) => (fbm(((x % LW) + LW) % LW * 0.06, y * 0.12) - 0.5) * 0.3 + (o.v || 0) });
   // camino más claro
   p.poly([[-4, GROUND - 3], [LW + 4, GROUND - 3], [LW + 4, GROUND + 8], [-4, GROUND + 8]], { m: o.path ?? M.sand, R: 0, n: [0, -0.8, 0.6], ol: 0, v: (x, y) => (noise(x * 0.3, y * 0.6) - 0.5) * 0.2 + 0.05 });
-  E.stones(p, 60, r, rr => [rr() * LW, GROUND - 6 + rr() * 44], { m: o.stone ?? M.rock });
+  E.stones(p, 40, r, rr => [rr() * LW, GROUND - 6 + rr() * 44], { m: o.stone ?? M.rock });
+  // textura por planos: briznas (o rizos de arena) más altas cerca y más cortas lejos
+  for (let k = 0; k < 1400; k++) {
+    const x = r() * LW, y = GROUND + 9 + r() ** 0.7 * 54, near = (y - GROUND) / 62;
+    if (o.green) { const h = 0.6 + near * 2.6 + r() * near; p.cap(x, y, x + (r() - 0.5) * near, y - h, 0.45, 0.4, { m: M.grass, R: 0, ol: 0, v: 0.1 + r() * 0.25 }); }
+    else if (k % 3 === 0) { const l = 1 + near * 3; p.cap(x, y, x + l, y, 0.45, 0.45, { m: o.m, R: 0, ol: 0, n: [0, -0.9, 0.4], v: (k % 2 ? 0.18 : -0.12) }); }
+  }
   return top;
 }
 
@@ -161,7 +167,8 @@ function paintBiome(S, B, name, r) {
   const groundM = { galilea: M.dirt, jordan: M.dirt, jordanNoche: M.dirt, jerico: M.dirt, desierto: M.sand, jerusalen: M.dirt, eufrates: M.sand, arabia: M.sand, petra: M.sand, reyesJerusalen: M.dirt, regreso: M.dirt }[name];
   S.parallax(LW, B.still ? 0 : 30, p => {
     const rr = rng(name.length * 7 + 1);
-    nearGround(p, rr, { m: groundM, path: name === 'arabia' ? M.sand : M.sand, stone: M.rock });
+    const green0 = ['galilea', 'jordan', 'jordanNoche', 'jerico', 'jerusalen', 'regreso', 'reyesJerusalen'].includes(name);
+    nearGround(p, rr, { m: groundM, path: M.sand, stone: name === 'petra' ? M.rosestone : M.rock, green: green0 });
     const green = ['galilea', 'jordan', 'jordanNoche', 'jerico', 'jerusalen', 'regreso', 'reyesJerusalen'].includes(name);
     for (let k = 0; k < (green ? 40 : 14); k++) E.grassTuft(p, rr() * LW, 236 + rr() * 34, 5 + rr() * 6, rr, green ? M.grass : M.olive);
     if (name === 'galilea') for (let k = 0; k < 30; k++) { const x = rr() * LW, y = 238 + rr() * 30; p.pix(x, y, M.red, { v: 0.5 }); p.pix(x + 1, y, M.red, { v: 0.3 }); }

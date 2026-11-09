@@ -1,12 +1,12 @@
 // Escenario genérico: fondo pintado (fijo o en capas con paralaje), actores animados, primer plano,
 // mapas de luz propios de la escena y efectos. Cada escena solo describe qué hay y cómo se mueve.
-import { W, H, GBuf, Painter, Actor } from './engine.js';
+import { W, H, GBuf, Painter, Actor, bakeCel } from './engine.js';
 
 export const LIGHT = {
   night: { moonDir: [0.52, -0.62, 0.58], moon: 0.42, amb0: 0.075, amb1: 0.06 },
-  dusk: { moonDir: [-0.75, -0.35, 0.56], moon: 0.95, amb0: 0.1, amb1: 0.12 },
-  dawn: { moonDir: [0.78, -0.3, 0.55], moon: 0.75, amb0: 0.12, amb1: 0.12 },
-  day: { moonDir: [0.45, -0.78, 0.45], moon: 0.82, amb0: 0.12, amb1: 0.14 },
+  dusk: { moonDir: [-0.75, -0.35, 0.56], moon: 0.95, amb0: 0.1, amb1: 0.12, bgDim: 0.95, bgMoon: 0.6 },
+  dawn: { moonDir: [0.78, -0.3, 0.55], moon: 0.75, amb0: 0.12, amb1: 0.12, bgDim: 0.95, bgMoon: 0.6 },
+  day: { moonDir: [0.45, -0.78, 0.45], moon: 0.82, amb0: 0.14, amb1: 0.18, bgDim: 1, bgMoon: 0.72 },
 };
 
 export class Stage {
@@ -23,7 +23,15 @@ export class Stage {
   parallax(w, speed, paint, top = false) { const b = new GBuf(w, H); paint(new Painter(b), b); (top ? this.paraTop : this.para).push({ b, speed }); return b; }
   add(o) { const a = o instanceof Actor ? o : new Actor(o); this.layers.push(a); return a; }
   addFG() { this.layers.push({ fg: true }); }
-  done() { if (this.fg) this.fg.pack(); this.bg.pack?.(); return this; }
+  // horneado del sombreado plano de todo el escenario con la luz principal de la escena
+  done() {
+    const key = this.key || this.light.moonDir;
+    bakeCel(this.bg, key, false, { texK: 0.5 });
+    if (this.fg) { bakeCel(this.fg, key, false, { texK: 0.6 }); this.fg.pack(); }
+    this.para.forEach((l, i) => bakeCel(l.b, key, false, { texK: 0.5, haze: i === 0 ? 0.35 : i === 1 ? 0.15 : 0 }));
+    this.paraTop.forEach(l => bakeCel(l.b, key, false, { texK: 0.6 }));
+    return this;
+  }
   frame(t) {
     const R = this.R, G = R.G;
     R.shelter = this.shelter; R.shad = this.shad; R.hl = this.hl; R.shadOrd = this.shadOrd;

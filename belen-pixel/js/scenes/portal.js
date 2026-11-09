@@ -1,5 +1,5 @@
 // Escena: el Portal de Belén en Nochebuena (vista cercana).
-import { W, H, M, GBuf, Painter, Actor, newObj, noise, fbm, clamp, lerp, smooth, sdPoly, sdEllipse, bboxOf, chaikin, bayer, rng } from '../engine.js';
+import { W, H, M, GBuf, Painter, Actor, bakeCel, newObj, noise, fbm, clamp, lerp, smooth, sdPoly, sdEllipse, bboxOf, chaikin, bayer, rng } from '../engine.js';
 import * as F from '../figures.js';
 import { persona } from '../people.js';
 import { CAST } from '../cast.js';
@@ -235,7 +235,8 @@ export function buildPortal(R, variant = 'nacimiento') {
   const bg = new GBuf(W, H), pb = new Painter(bg);
   const info = paintBG(pb);
   const fg = new GBuf(W, H), pf = new Painter(fg);
-  paintFG(pf); fg.pack();
+  paintFG(pf);
+  bakeCel(bg, [0.15, -0.72, 0.66], false, { texK: 0.5 }); bakeCel(fg, [0.15, -0.72, 0.66], false, { texK: 0.6 }); fg.pack();
   const maps = { shelter: new Float32Array(W * H), shad: new Float32Array(W * H), hl: new Float32Array(W * H), shadOrd: 20000 };
 
   // refugio: cuánto cielo ve cada punto (0 = todo, 1 = nada)
