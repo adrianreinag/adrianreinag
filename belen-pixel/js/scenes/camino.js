@@ -202,7 +202,7 @@ export function buildCamino(R, name = 'galilea') {
 
   if (B.walkers === 'family') {
     S.add({ w: 150, h: 150, ox: 66, oy: 124, x: 190, y: GROUND, scale: sc, shadow: [26, 3], key: walk, draw: (p, tt, k) => {
-      const w = +k, ms = sc * 1.3; p.s = ms; const res = mulaPie(p, { w, tail: w % 2 }, { bags: true }); p.s = sc;
+      const w = +k, ms = sc * 1.3; p.s = ms; const res = mulaPie(p, { w, tail: w % 2 }, { bags: false }); p.s = sc;
       const ox = p.ox, oy = p.oy; p.ox += res.saddle[0] * ms - 2 * sc; p.oy += res.saddle[1] * ms + 13 * sc;
       persona(p, { ...CAST.maria, pose: 'side', armN: 'hold', armF: 'hold' }, { b: w === 1 ? 1 : 0 });
       p.ox = ox; p.oy = oy;
@@ -235,6 +235,7 @@ export function buildCamino(R, name = 'galilea') {
     if (stars.length) { E.drawStars(R, stars, tt); E.shootingStar(R, tt, M.sky, 17); }
     if (t === 'night' && !B.star) { R.glow(390, 40, 22, [200, 210, 255], 0.25, 5); for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) if (x * x + y * y <= 36 && (x + 2) * (x + 2) + (y - 1) * (y - 1) > 26) R.set(390 + x, 40 + y, [236, 232, 214]); }
     if (B.star) E.bethlehemStar(R, 360, 34, tt, { dir: [1.6, -0.5] });
+    if (t === 'day' || t === 'dusk' || t === 'dawn') E.birds(R, tt, 5, 60, 70, t === 'day' ? [40, 44, 60] : [30, 20, 36]);
     if (name === 'jordan' || name === 'jordanNoche' || name === 'eufrates') E.shimmer(R, S.waterMask || (S.waterMask = waterPixels(R)), tt, waterM());
     if (camp) { E.flames(R, 300, 242, 1.1, tt); E.smoke(R, 302, 222, tt, 10); }
     if (S.torch) E.flames(R, S.torch[0], S.torch[1], 0.45, tt, { big: t === 'night' });

@@ -123,7 +123,7 @@ export function buildNazaret(R, V = 'noche') {
   }
   if (V === 'partida') {
     S.add({ w: 150, h: 150, ox: 66, oy: 124, x: 236, y: GY + 10, scale: 0.92, key: t => `${breath(t, 4)}`, draw: (p, t, k) => {
-      const ms = 0.92 * 1.3; p.s = ms; const res = mulaPie(p, { ear: +k }, { bags: true }); p.s = 0.92;
+      const ms = 0.92 * 1.3; p.s = ms; const res = mulaPie(p, { ear: +k }, { bags: false }); p.s = 0.92;
       const ox = p.ox, oy = p.oy; p.ox += res.saddle[0] * ms - 2; p.oy += res.saddle[1] * ms + 12; persona(p, { ...CAST.maria, pose: 'side', armN: 'hold', armF: 'hold' }, { b: +k }); p.ox = ox; p.oy = oy;
     } });
     S.add({ w: 80, h: 140, ox: 34, oy: 124, x: 318, y: GY + 12, scale: 0.92, key: t => `${breath(t, 4.6)}`, draw: P(CAST.jose) });
@@ -155,6 +155,7 @@ export function buildNazaret(R, V = 'noche') {
       for (const [x, y] of dove) R.set(dx + x, dy + y, [255, 252, 240]);
       R.glow(196, 120, 30, [255, 240, 200], 0.3, 5);
     }
+    if (time !== 'night') E.birds(R, t, 4, 120, 50, time === 'day' ? [40, 44, 60] : [30, 20, 36]);
     if (S.hens) S.hens.forEach(([x, y], i) => { const pk = Math.floor(t * 2 + i) % 3 === 0; const c1 = [200, 120, 60], c2 = [150, 80, 40]; for (let k = -2; k <= 2; k++) R.set(x + k, y - 2, c1); for (let k = -2; k <= 1; k++) R.set(x + k, y - 3, c1); R.set(x + 2, y - (pk ? 1 : 4), c2); R.set(x + 3, y - (pk ? 1 : 4), [220, 60, 40]); R.set(x - 1, y, c2); R.set(x + 1, y, c2); R.set(x - 3, y - 4, c2); });
   };
   S.focus = V === 'taller' ? 0.75 : V === 'anunciacion' ? 0.3 : 0.5;

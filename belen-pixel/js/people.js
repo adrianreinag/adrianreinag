@@ -9,6 +9,8 @@ const curly = (s, a) => (x, y) => [(noise(x * s, y * s) - 0.5) * a, (noise(x * s
 const ARMS = {
   down: [[3.5, -64], [4.5, -53]],
   staff: [[8, -66], [13, -62]],
+  staffF: [[10, -66], [17, -63]],
+  staffB: [[6, -65], [9, -61]],
   forward: [[9, -67], [17, -67]],
   offer: [[9, -63], [16, -64]],
   up: [[8.5, -87], [11, -98]],
@@ -47,7 +49,7 @@ export function persona(p, o, t = {}) {
   const tunic = o.tunic ?? M.brown, sleeve = o.sleeve ?? tunic;
   const tunF = vfold(0.95, 0.32, o.seed || 0);
   const item = o.item || {};
-  const armN = w >= 0 && !o.armN ? (w === 0 ? [[-0.5, -64], [-3.5, -54]] : w === 2 ? [[6.5, -64], [10, -55]] : ARMS.down) : ARMS[o.armN || 'down'];
+  const armN = w >= 0 && o.armN === 'staff' ? ARMS[w === 0 ? 'staffF' : w === 2 ? 'staffB' : 'staff'] : w >= 0 && !o.armN ? (w === 0 ? [[-0.5, -64], [-3.5, -54]] : w === 2 ? [[6.5, -64], [10, -55]] : ARMS.down) : ARMS[o.armN || 'down'];
   const armF = ARMS[o.armF || (w >= 0 ? 'down' : 'down')];
 
   // ---- objeto largo detrás (vara, cayado, lanza) va con la mano cercana; se pinta luego
@@ -90,7 +92,7 @@ export function persona(p, o, t = {}) {
     const sw = w < 0 ? 0 : w === 0 ? 2 : w === 2 ? -2 : 0;
     skirt = [[-11.5, -40], [-12.5, -32], [-12 - sw * 0.5, -27], [0, -26], [12 + sw, -27], [12.5, -32], [11.5, -40]];
   } else {
-    const hf = w < 0 ? 0 : w === 0 ? 3.5 : w === 2 ? 1.5 : -1, hb = w < 0 ? 0 : w === 0 ? 2.5 : w === 2 ? 1.5 : -1.5;
+    const hf = w < 0 ? 0 : w === 0 ? 5 : w === 2 ? 3 : -1, hb = w < 0 ? 0 : w === 0 ? 3.5 : w === 2 ? 2.5 : -1.5;
     skirt = [[-11.5, -40], [-12.5, -24], [-13.5 - hb * 0.5, -10], [-14.2 - hb, -2], [-10 - hb * 0.5, 0.6], [0, 0.6], [11 + hf, 0.6], [13.8 + hf, -2], [13 + hf * 0.5, -10], [12, -24], [11, -40]];
   }
   const torso = [[8, -79], [3, -81], [-3, -81], [-8, -78], [-10.5, -68], [-11, -56], [-11.5, -45]];
@@ -99,7 +101,7 @@ export function persona(p, o, t = {}) {
   if (o.hem) crease(o.short ? [[-12, -27.5], [12, -27.5]] : [], 0.3, o.hem);
   // pies bajo la túnica larga
   if (!o.short && !kneel && !ride && !o.noBody) {
-    const F = w < 0 ? [[8, -0.7, 0], [-4, -0.7, 0]] : w === 0 ? [[13, -1.2, -0.3], [-11, -1.6, 0.4]] : w === 1 ? [[4, -0.7, 0], [-1, -2.6, 0.2]] : w === 2 ? [[-9, -1.6, 0.4], [12, -1.2, -0.3]] : [[-1, -2.6, 0.2], [4, -0.7, 0]];
+    const F = w < 0 ? [[8, -0.7, 0], [-4, -0.7, 0]] : w === 0 ? [[15, -1.4, -0.35], [-13, -1.8, 0.45]] : w === 1 ? [[4, -0.7, 0], [0, -3.4, 0.25]] : w === 2 ? [[-12, -1.8, 0.45], [14, -1.4, -0.35]] : [[0, -3.4, 0.25], [4, -0.7, 0]];
     for (const [x, y, r] of F) { p.ell(x, y, 3.4, 1.5, { m: M.wood, R: 1, rot: r }); p.ell(x + 2, y - 0.6, 1.6, 0.9, { m: skin, R: 1 }); }
   }
   if (ride && o.rideLegs !== false) {

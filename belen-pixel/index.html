@@ -19,10 +19,11 @@
   #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   #scene { position: absolute; image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
   #painting { position: absolute; inset: auto 0 12px; text-align: center; font: 400 15px var(--f-display); color: var(--gold); letter-spacing: 0.08em; }
-  .cartela { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 24px;
+  .cartela { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 8px 24px;
     padding-block: 10px 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
     border-top: 1px solid var(--line); }
   .story { min-width: 0; }
+  #map { width: 120px; height: 92px; image-rendering: pixelated; border-radius: 2px; box-shadow: 0 0 0 1px var(--line); align-self: center; }
   #when { margin: 0; font: 400 12px/1.2 var(--f-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   #title { margin: 2px 0 4px; font: 600 clamp(18px, 2.4vw, 26px)/1.1 var(--f-display); color: var(--gold); text-wrap: balance; }
   #text { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink); font-style: italic; max-width: 72ch; }
@@ -33,7 +34,9 @@
   button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   button[aria-pressed="true"] { background: var(--chip-on); border-color: var(--gold); color: var(--gold); }
   @media (max-width: 640px) {
-    .cartela { grid-template-columns: 1fr; }
+    .cartela { grid-template-columns: auto minmax(0, 1fr); }
+    #map { width: 90px; height: 69px; align-self: start; }
+    .controls { grid-column: 1 / -1; }
     .controls { align-items: stretch; flex-direction: row; justify-content: space-between; flex-wrap: wrap; }
     #text { font-size: 14px; }
   }
@@ -45,6 +48,7 @@
   <div id="painting" hidden>Pintando la escena…</div>
 </div>
 <footer class="cartela">
+  <canvas id="map" width="120" height="92" aria-label="Mapa del camino"></canvas>
   <div class="story">
     <p id="when"></p>
     <h1 id="title">Belén de Judá</h1>

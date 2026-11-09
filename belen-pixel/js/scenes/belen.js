@@ -49,7 +49,7 @@ export function buildBelen(R, V = 'posadas') {
   const breath = (t, per, ph = 0) => ((t + ph) % per) / per < 0.45 ? 1 : 0;
   const P = (cfg) => (p2, t, k) => persona(p2, cfg, { b: +k });
   const mulaMaria = (x, y, flip) => S.add({ w: 150, h: 150, ox: 66, oy: 124, x, y, flip, scale: 0.9, key: t => `${breath(t, 4)}`, draw: (p2, t, k) => {
-    const ms = 0.9 * 1.3; p2.s = ms; const res = mulaPie(p2, { ear: +k }, { bags: true }); p2.s = 0.9;
+    const ms = 0.9 * 1.3; p2.s = ms; const res = mulaPie(p2, { ear: +k }, { bags: false }); p2.s = 0.9;
     const ox = p2.ox, oy = p2.oy; p2.ox += res.saddle[0] * ms - 2; p2.oy += res.saddle[1] * ms + 12; persona(p2, { ...CAST.maria, pose: 'side', armN: 'hold', armF: 'hold' }, { b: +k }); p2.ox = ox; p2.oy = oy;
   } });
   const torchLights = [];

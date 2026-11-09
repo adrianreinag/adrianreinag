@@ -230,3 +230,13 @@ export function paintText(p, s, x, y, m, v = 0.1, yf = () => 0) {
     cx += 4;
   }
 }
+
+// bandada de pájaros lejanos (forma de "v" que aletea)
+export function birds(R, t, n, x0, y0, col = [40, 36, 50], seed = 1) {
+  for (let k = 0; k < n; k++) {
+    const sp = 9 + (k * 7.3 % 5), x = ((x0 + k * 37 + t * sp) % (W + 40)) - 20, y = y0 + Math.sin(t * 0.7 + k * 1.9) * 6 + (k * 13 % 22);
+    const up = Math.floor(t * 6 + k * 1.3) % 2;
+    R.set(x, y, col); R.set(x - 1, y - (up ? 1 : 0), col); R.set(x + 1, y - (up ? 1 : 0), col);
+    R.set(x - 2, y - (up ? 2 : -1), col); R.set(x + 2, y - (up ? 2 : -1), col);
+  }
+}

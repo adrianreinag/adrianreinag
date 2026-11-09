@@ -4,6 +4,7 @@ import { W, H, Renderer } from './engine.js';
 import './palette.js';
 import { SCENES } from './scenes/index.js';
 import { entryFor, defaultView, fmtDate } from './calendar.js';
+import { drawMap } from './map.js';
 
 const cv = document.getElementById('scene');
 const stage = document.getElementById('stage');
@@ -18,7 +19,7 @@ function layout() {
   const dpr = window.devicePixelRatio || 1, box = stage.getBoundingClientRect();
   const vw = box.width * dpr, vh = box.height * dpr;
   const narrow = box.width / box.height < 1.15;
-  let s = narrow ? Math.min(vw / 300, vh / H) : Math.min(vw / W, vh / H);
+  let s = narrow ? Math.min(vw / 250, vh / H) : Math.min(vw / W, vh / H);
   s = s >= 1 ? Math.floor(s) : s;
   const cw = (W * s) / dpr, ch = (H * s) / dpr;
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
@@ -38,7 +39,7 @@ function getScene(v) {
 
 // ---------- estado: día y punto de vista ----------
 const today = new Date();
-let date = new Date(today), viewIdx = 0, entry, scene = null;
+let date = new Date(today), viewIdx = 0, entry, scene = null, mapKey = '';
 const parseHash = () => {
   const m = /^#(\d{2})-(\d{2})(?:-(\d))?$/.exec(location.hash);
   if (!m) return false;
@@ -65,6 +66,7 @@ function render() {
     tabs.appendChild(b);
   });
   $('today').hidden = date.toDateString() === today.toDateString();
+  mapKey = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; drawMap($('map'), mapKey);
   const k = v.scene + ':' + v.variant;
   const show = () => { scene = getScene(v); window.__scene = scene; warm(scene); $('painting').hidden = true; focusX = scene.focus ?? 0.5; layout(); first(); };
   if (!cache.has(k)) { $('painting').hidden = false; setTimeout(show, 30); } else show();
@@ -96,6 +98,7 @@ function tick(now) {
   requestAnimationFrame(tick);
   if (now - last < (reduce ? 250 : 33) || !scene) return;
   last = now; scene.frame((now - t0) / 1000);
+  if (mapKey && Math.floor(now / 500) !== Math.floor((now - 34) / 500)) drawMap($('map'), mapKey, now / 1000);
 }
 
 layout();
